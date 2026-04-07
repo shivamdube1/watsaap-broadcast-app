@@ -1,0 +1,12 @@
+node_modules/
+.env
+auth_info/
+auth_info_baileys/
+uploads/
+contacts.json
+groups.json
+custom_groups.json
+broadcast_lists.json
+out.txt
+.DS_Store
+*.log
