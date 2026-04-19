@@ -1,0 +1,217 @@
+{
+  "name": "Drip Engine — 1. Enroll Contacts",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "campaigns/:campaignId/enroll",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-enroll",
+      "name": "Webhook: POST /enroll",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "enroll-contacts-webhook"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT id, email, metadata FROM contacts WHERE id = ANY($1::uuid[]) AND status = 'active'",
+        "additionalFields": {
+          "queryParams": "={{ JSON.stringify([$json.body.contactIds]) }}"
+        }
+      },
+      "id": "pg-fetch-contacts",
+      "name": "PG: Fetch Active Contacts",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [460, 300],
+      "credentials": {
+        "postgres": {
+          "id": "drip-postgres",
+          "name": "Drip Engine Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "code": {
+          "execute": {
+            "code": "// Validate input\nconst webhookData = $('Webhook: POST /enroll').first().json;\nconst campaignId = webhookData.params.campaignId;\nif (!campaignId || !/^[0-9a-f-]{36}$/i.test(campaignId)) {\n  throw new Error('Invalid or missing campaignId path parameter');\n}\nconst contactIds = webhookData.body?.contactIds;\nif (!Array.isArray(contactIds) || contactIds.length === 0) {\n  throw new Error('contactIds must be a non-empty array');\n}\n// Pass campaignId downstream on each contact item\nreturn $input.all().map(item => ({\n  json: { ...item.json, campaignId }\n}));"
+          }
+        }
+      },
+      "id": "code-validate-inject",
+      "name": "Code: Validate & Inject campaignId",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "id": "split-contacts",
+      "name": "Split: One Contact at a Time",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM drip_steps WHERE campaign_id = $1::uuid AND step_order = 1",
+        "additionalFields": {
+          "queryParams": "={{ JSON.stringify([$json.campaignId]) }}"
+        }
+      },
+      "id": "pg-fetch-step1",
+      "name": "PG: Fetch Step 1",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1120, 300],
+      "credentials": {
+        "postgres": {
+          "id": "drip-postgres",
+          "name": "Drip Engine Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "code": {
+          "execute": {
+            "code": "// Merge step data back onto the contact item\nconst contactItem = $('Split: One Contact at a Time').item.json;\nconst stepItems = $input.all();\nif (stepItems.length === 0) {\n  // No step 1 found for this campaign — skip\n  return [];\n}\nconst step = stepItems[0].json;\nreturn [{ json: { ...contactItem, step } }];"
+          }
+        }
+      },
+      "id": "code-merge-step",
+      "name": "Code: Merge Step Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1340, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO subscriber_sequences (contact_id, campaign_id, current_step_order, status)\nVALUES ($1::uuid, $2::uuid, 1, 'active')\nON CONFLICT (contact_id, campaign_id) DO NOTHING\nRETURNING *",
+        "additionalFields": {
+          "queryParams": "={{ JSON.stringify([$json.id, $json.campaignId]) }}"
+        }
+      },
+      "id": "pg-upsert-sequence",
+      "name": "PG: Upsert subscriber_sequences",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1560, 300],
+      "credentials": {
+        "postgres": {
+          "id": "drip-postgres",
+          "name": "Drip Engine Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "code": {
+          "execute": {
+            "code": "// If the subscriber_sequence already existed, INSERT returned nothing.\n// We still need the sequence ID so we fetch it.\nconst contact = $('Code: Merge Step Data').item.json;\nconst inserted = $input.all();\nif (inserted.length > 0 && inserted[0].json.id) {\n  return [{ json: { ...contact, sequenceId: inserted[0].json.id } }];\n}\n// Row already existed — look it up\nreturn [{ json: { ...contact, sequenceId: null } }];"
+          }
+        }
+      },
+      "id": "code-extract-seq-id",
+      "name": "Code: Extract Sequence ID",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1780, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH seq AS (\n  SELECT id FROM subscriber_sequences\n  WHERE contact_id = $1::uuid AND campaign_id = $2::uuid\n)\nINSERT INTO email_queue\n  (subscriber_sequence_id, campaign_id, contact_id, step_order, scheduled_for, status)\nSELECT seq.id, $2::uuid, $1::uuid, 1,\n       NOW() + ($3::int || ' days')::INTERVAL,\n       'pending'\nFROM seq\nON CONFLICT DO NOTHING",
+        "additionalFields": {
+          "queryParams": "={{ JSON.stringify([$json.id, $json.campaignId, $json.step.delay_days]) }}"
+        }
+      },
+      "id": "pg-insert-queue",
+      "name": "PG: Queue Step 1 Email",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [2000, 300],
+      "credentials": {
+        "postgres": {
+          "id": "drip-postgres",
+          "name": "Drip Engine Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ enrolled: $('PG: Fetch Active Contacts').all().length, campaignId: $('Webhook: POST /enroll').first().json.params.campaignId }) }}"
+      },
+      "id": "respond-webhook",
+      "name": "Respond: Enrolled Count",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [2220, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ error: $json.message || 'Enrollment failed', enrolled: 0 }) }}",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "id": "respond-error",
+      "name": "Respond: Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [460, 500]
+    }
+  ],
+  "connections": {
+    "Webhook: POST /enroll": {
+      "main": [[{"node": "PG: Fetch Active Contacts", "type": "main", "index": 0}]]
+    },
+    "PG: Fetch Active Contacts": {
+      "main": [[{"node": "Code: Validate & Inject campaignId", "type": "main", "index": 0}]]
+    },
+    "Code: Validate & Inject campaignId": {
+      "main": [[{"node": "Split: One Contact at a Time", "type": "main", "index": 0}]]
+    },
+    "Split: One Contact at a Time": {
+      "main": [[{"node": "PG: Fetch Step 1", "type": "main", "index": 0}]]
+    },
+    "PG: Fetch Step 1": {
+      "main": [[{"node": "Code: Merge Step Data", "type": "main", "index": 0}]]
+    },
+    "Code: Merge Step Data": {
+      "main": [[{"node": "PG: Upsert subscriber_sequences", "type": "main", "index": 0}]]
+    },
+    "PG: Upsert subscriber_sequences": {
+      "main": [[{"node": "Code: Extract Sequence ID", "type": "main", "index": 0}]]
+    },
+    "Code: Extract Sequence ID": {
+      "main": [[{"node": "PG: Queue Step 1 Email", "type": "main", "index": 0}]]
+    },
+    "PG: Queue Step 1 Email": {
+      "main": [[{"node": "Respond: Enrolled Count", "type": "main", "index": 0}]]
+    }
+  },
+  "settings": {
+    "errorWorkflow": "",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": ["drip-engine"],
+  "meta": {
+    "instanceId": "drip-engine-local"
+  }
+}

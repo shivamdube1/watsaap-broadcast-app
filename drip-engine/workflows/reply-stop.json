@@ -1,0 +1,240 @@
+{
+  "name": "Drip Engine — 3. Reply Stop",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 15
+            }
+          ]
+        }
+      },
+      "id": "schedule-reply",
+      "name": "Schedule: Every 15 Minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT id, imap_host, imap_user, imap_pass FROM campaigns WHERE is_active = true AND imap_host IS NOT NULL",
+        "additionalFields": {}
+      },
+      "id": "pg-fetch-campaigns",
+      "name": "PG: Fetch Campaigns with IMAP",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [460, 300],
+      "credentials": {
+        "postgres": {
+          "id": "drip-postgres",
+          "name": "Drip Engine Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "id": "split-campaigns",
+      "name": "Split: One Campaign",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "mailbox": "INBOX",
+        "since": "={{ new Date(Date.now() - 3600000).toISOString() }}",
+        "options": {
+          "allowUnauthorizedCerts": false,
+          "forceReconnect": true
+        },
+        "format": "resolved"
+      },
+      "id": "imap-fetch",
+      "name": "IMAP: Fetch Last Hour Emails",
+      "type": "n8n-nodes-base.emailReadImap",
+      "typeVersion": 2,
+      "position": [900, 300],
+      "credentials": {
+        "imap": {
+          "id": "imap-campaign",
+          "name": "Campaign IMAP"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "code": {
+          "execute": {
+            "code": "// Extract unique sender email addresses from IMAP results\nconst items = $input.all();\nconst senders = new Set();\nfor (const item of items) {\n  const from = item.json.from;\n  if (!from) continue;\n  // 'from' may be 'Name <email>' or just 'email'\n  const match = from.match(/<([^>]+)>/) || from.match(/([\\w.+-]+@[\\w.-]+\\.[a-z]{2,})/i);\n  if (match) senders.add(match[1].toLowerCase().trim());\n}\nconst campaignItem = $('Split: One Campaign').item.json;\nconsole.log(`[Reply-Stop] Campaign ${campaignItem.id}: found ${senders.size} unique reply senders.`);\nreturn [{ json: { senderEmails: Array.from(senders), campaignId: campaignItem.id } }];"
+          }
+        }
+      },
+      "id": "code-extract-senders",
+      "name": "Code: Extract Sender Emails",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1120, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT ss.id AS sequence_id, ss.contact_id, ss.campaign_id\nFROM subscriber_sequences ss\nJOIN contacts c ON c.id = ss.contact_id\nWHERE c.email = ANY($1::text[])\n  AND ss.campaign_id = $2::uuid\n  AND ss.status      = 'active'",
+        "additionalFields": {
+          "queryParams": "={{ JSON.stringify([$json.senderEmails, $json.campaignId]) }}"
+        }
+      },
+      "id": "pg-find-sequences",
+      "name": "PG: Find Matching Sequences",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1340, 300],
+      "credentials": {
+        "postgres": {
+          "id": "drip-postgres",
+          "name": "Drip Engine Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "has-matches",
+              "leftValue": "={{ $json.sequence_id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-has-replies",
+      "name": "IF: Replies Found?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1560, 300]
+    },
+    {
+      "parameters": {
+        "code": {
+          "execute": {
+            "code": "// Collect all matched sequence IDs for batch update\nconst items = $input.all();\nconst sequenceIds = items.map(i => i.json.sequence_id).filter(Boolean);\nreturn [{ json: { sequenceIds } }];"
+          }
+        }
+      },
+      "id": "code-collect-ids",
+      "name": "Code: Collect Sequence IDs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1780, 180]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE subscriber_sequences\nSET status = 'paused', paused_reason = 'reply_detected', updated_at = NOW()\nWHERE id = ANY($1::uuid[])",
+        "additionalFields": {
+          "queryParams": "={{ JSON.stringify([$json.sequenceIds]) }}"
+        }
+      },
+      "id": "pg-pause-sequences",
+      "name": "PG: Pause Sequences",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [2000, 180],
+      "credentials": {
+        "postgres": {
+          "id": "drip-postgres",
+          "name": "Drip Engine Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE email_queue\nSET status = 'cancelled', updated_at = NOW()\nWHERE subscriber_sequence_id = ANY($1::uuid[])\n  AND status = 'pending'",
+        "additionalFields": {
+          "queryParams": "={{ JSON.stringify([$json.sequenceIds]) }}"
+        }
+      },
+      "id": "pg-cancel-queue",
+      "name": "PG: Cancel Pending Emails",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [2220, 180],
+      "credentials": {
+        "postgres": {
+          "id": "drip-postgres",
+          "name": "Drip Engine Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "noop-no-replies",
+      "name": "NoOp: No Replies",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [1780, 420]
+    }
+  ],
+  "connections": {
+    "Schedule: Every 15 Minutes": {
+      "main": [[{"node": "PG: Fetch Campaigns with IMAP", "type": "main", "index": 0}]]
+    },
+    "PG: Fetch Campaigns with IMAP": {
+      "main": [[{"node": "Split: One Campaign", "type": "main", "index": 0}]]
+    },
+    "Split: One Campaign": {
+      "main": [[{"node": "IMAP: Fetch Last Hour Emails", "type": "main", "index": 0}]]
+    },
+    "IMAP: Fetch Last Hour Emails": {
+      "main": [[{"node": "Code: Extract Sender Emails", "type": "main", "index": 0}]]
+    },
+    "Code: Extract Sender Emails": {
+      "main": [[{"node": "PG: Find Matching Sequences", "type": "main", "index": 0}]]
+    },
+    "PG: Find Matching Sequences": {
+      "main": [[{"node": "IF: Replies Found?", "type": "main", "index": 0}]]
+    },
+    "IF: Replies Found?": {
+      "main": [
+        [{"node": "Code: Collect Sequence IDs", "type": "main", "index": 0}],
+        [{"node": "NoOp: No Replies", "type": "main", "index": 0}]
+      ]
+    },
+    "Code: Collect Sequence IDs": {
+      "main": [[{"node": "PG: Pause Sequences", "type": "main", "index": 0}]]
+    },
+    "PG: Pause Sequences": {
+      "main": [[{"node": "PG: Cancel Pending Emails", "type": "main", "index": 0}]]
+    }
+  },
+  "settings": {
+    "errorWorkflow": "",
+    "saveManualExecutions": true,
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": ["drip-engine"],
+  "meta": {
+    "instanceId": "drip-engine-local"
+  }
+}

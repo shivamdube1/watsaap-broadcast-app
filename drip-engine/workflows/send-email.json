@@ -1,0 +1,432 @@
+{
+  "name": "Drip Engine — 4. Send Email (Sub-Workflow)",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "execute-trigger",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "code": {
+          "execute": {
+            "code": "// Parse queueItem — it may arrive as a JSON string or an object\nconst raw = $input.item.json;\nlet queueItem;\nif (typeof raw.queueItem === 'string') {\n  queueItem = JSON.parse(raw.queueItem);\n} else if (raw.queueItem && typeof raw.queueItem === 'object') {\n  queueItem = raw.queueItem;\n} else {\n  throw new Error('send-email sub-workflow: queueItem missing from input');\n}\n\n// ── Apply DEFAULT_FROM_* env var fallbacks ────────────────────\n// Allows campaigns to skip setting from_email at the DB level.\nconst defaultFromEmail = process.env.DEFAULT_FROM_EMAIL || 'noreply@example.com';\nconst defaultFromName  = process.env.DEFAULT_FROM_NAME  || 'Drip Engine';\nqueueItem.from_email      = queueItem.from_email      || defaultFromEmail;\nqueueItem.from_name       = queueItem.from_name       || defaultFromName;\nqueueItem.reply_to_email  = queueItem.reply_to_email  || queueItem.from_email;\n\n// Validate essential fields (from_email is now guaranteed)\nconst required = ['queue_id', 'email', 'campaign_id', 'contact_id', 'step_order',\n                  'subject', 'template_body', 'hourly_limit'];\nconst missing = required.filter(k => queueItem[k] === undefined || queueItem[k] === null);\nif (missing.length > 0) {\n  throw new Error(`send-email: missing required fields: ${missing.join(', ')}`);\n}\nreturn [{ json: { queueItem } }];"
+          }
+        }
+      },
+      "id": "code-parse-input",
+      "name": "Code: Parse Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT email FROM suppression_list WHERE email = $1",
+        "additionalFields": {
+          "queryParams": "={{ JSON.stringify([$json.queueItem.email]) }}"
+        }
+      },
+      "id": "pg-check-suppression",
+      "name": "PG: Check Suppression",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [680, 300],
+      "credentials": {
+        "postgres": {
+          "id": "drip-postgres",
+          "name": "Drip Engine Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "is-suppressed",
+              "leftValue": "={{ $json.email }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-suppressed",
+      "name": "IF: Is Suppressed?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {"id": "sk1", "name": "skipped", "value": true, "type": "boolean"},
+            {"id": "sk2", "name": "reason", "value": "suppressed", "type": "string"}
+          ]
+        },
+        "options": {}
+      },
+      "id": "set-skipped-suppressed",
+      "name": "Set: Skipped (Suppressed)",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1120, 180]
+    },
+
+    {
+      "parameters": {
+        "code": {
+          "execute": {
+            "code": "// ── Rate Limit Check using Workflow Static Data ──────────────\n// Static data persists across executions within the same workflow.\n// Key: rl_<campaignId>  → current hour send count\n// Key: rl_ts_<campaignId> → timestamp when window started\n\nconst data = $getWorkflowStaticData('global');\nconst item = $input.item.json.queueItem;\nconst campaignId  = item.campaign_id;\nconst hourlyLimit = Number(item.hourly_limit) || 100;\nconst now = Date.now();\n\nconst windowKey = `rl_${campaignId}`;\nconst tsKey     = `rl_ts_${campaignId}`;\n\n// Reset window if 1 hour has elapsed\nif (!data[tsKey] || (now - data[tsKey]) > 3_600_000) {\n  data[windowKey] = 0;\n  data[tsKey]     = now;\n}\n\nif (data[windowKey] >= hourlyLimit) {\n  console.log(`[Rate Limit] Campaign ${campaignId}: limit ${hourlyLimit}/hr reached. Skipping.`);\n  return [{ json: { rateLimited: true, queueItem: item } }];\n}\n\ndata[windowKey]++;\nconsole.log(`[Rate Limit] Campaign ${campaignId}: ${data[windowKey]}/${hourlyLimit} this hour.`);\nreturn [{ json: { rateLimited: false, count: data[windowKey], queueItem: item } }];"
+          }
+        }
+      },
+      "id": "code-rate-limit",
+      "name": "Code: Rate Limit Check",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1120, 420]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "is-rate-limited",
+              "leftValue": "={{ $json.rateLimited }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-rate-limited",
+      "name": "IF: Rate Limited?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1340, 420]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {"id": "rl1", "name": "skipped", "value": true, "type": "boolean"},
+            {"id": "rl2", "name": "reason", "value": "rate_limited", "type": "string"}
+          ]
+        },
+        "options": {}
+      },
+      "id": "set-skipped-ratelimited",
+      "name": "Set: Skipped (Rate Limited)",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1560, 300]
+    },
+
+    {
+      "parameters": {
+        "code": {
+          "execute": {
+            "code": "// ── Template Personalisation + HMAC-signed Unsubscribe Token ─\nconst crypto = require('crypto');\n\nconst item     = $input.item.json.queueItem;\nconst metadata = typeof item.metadata === 'string'\n  ? JSON.parse(item.metadata)\n  : (item.metadata || {});\n\nconst contact = { ...metadata, email: item.email };\n\n// Render template — collect missing variables\nconst missing = [];\nconst renderVar = (template) => template.replace(/\\{\\{(\\w+)\\}\\}/g, (_, k) => {\n  if (contact[k] === undefined) { missing.push(k); return ''; }\n  return String(contact[k]);\n});\n\nconst renderedSubject = renderVar(item.subject);\nconst renderedBody    = renderVar(item.template_body);\n\nif (missing.length > 0) {\n  throw new Error(`Missing template variables: ${[...new Set(missing)].join(', ')}`);\n}\n\n// Build HMAC-signed base64url unsubscribe token\nconst payload = JSON.stringify({\n  email: item.email,\n  cid:   item.campaign_id,\n  iat:   Math.floor(Date.now() / 1000)\n});\nconst secret = process.env.UNSUB_HMAC_SECRET || 'change-me-in-env';\nconst hmac   = crypto.createHmac('sha256', secret)\n  .update(payload)\n  .digest('base64url');\n\nconst tokenPayload = Buffer.from(payload).toString('base64url');\nconst unsubToken   = `${tokenPayload}.${hmac}`;\n\nconst n8nUrl    = process.env.WEBHOOK_URL || 'https://YOUR_N8N_URL';\nconst unsubLink = `${n8nUrl}/webhook/unsubscribe?t=${unsubToken}`;\n\nconst unsubFooter = `\n<p style=\"font-size:11px;color:#999;margin-top:32px;\">\n  You are receiving this because you subscribed to our list.<br>\n  <a href=\"${unsubLink}\">Unsubscribe</a>\n</p>`;\n\nconst finalBody = renderedBody + unsubFooter;\n\nreturn [{ json: {\n  ...item,\n  renderedSubject,\n  renderedBody: finalBody,\n  unsubToken,\n  unsubLink\n} }];"
+          }
+        }
+      },
+      "id": "code-personalise",
+      "name": "Code: Personalise Email",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1560, 480]
+    },
+
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.brevo.com/v3/smtp/email",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 15000
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "api-key",
+              "value": "={{ $credentials.httpHeaderAuth.value }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": []
+        },
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  sender: {\n    email: $json.from_email,\n    name:  $json.from_name || process.env.DEFAULT_FROM_NAME || 'Drip Engine'\n  },\n  to: [{ email: $json.email }],\n  replyTo: $json.reply_to_email\n    ? { email: $json.reply_to_email }\n    : { email: $json.from_email },\n  subject: $json.renderedSubject,\n  htmlContent: $json.renderedBody,\n  headers: {\n    'List-Unsubscribe': '<' + $json.unsubLink + '>',\n    'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',\n    'X-Campaign-Id': $json.campaign_id,\n    'X-Contact-Id':  $json.contact_id\n  }\n}) }}"
+      },
+      "id": "http-brevo-send",
+      "name": "HTTP: Send via Brevo",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1780, 480],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "brevo-api-key",
+          "name": "Brevo API Key"
+        }
+      },
+      "continueOnFail": false
+    },
+    {
+      "parameters": {
+        "code": {
+          "execute": {
+            "code": "// Extract ESP messageId from Brevo response\nconst resp = $input.item.json;\nconst messageId = resp.messageId || resp.message_id || resp.MessageId || null;\nif (!messageId) {\n  console.warn('[Send Email] Warning: Brevo did not return a messageId. Response:', JSON.stringify(resp));\n}\nconst prev = $('Code: Personalise Email').item.json;\nreturn [{ json: { ...prev, esp_message_id: messageId, brevoResponse: resp } }];"
+          }
+        }
+      },
+      "id": "code-extract-message-id",
+      "name": "Code: Extract messageId",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2000, 480]
+    },
+
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE email_queue\nSET status = 'sent', esp_message_id = $1, updated_at = NOW()\nWHERE id = $2::uuid",
+        "additionalFields": {
+          "queryParams": "={{ JSON.stringify([$json.esp_message_id, $json.queue_id]) }}"
+        }
+      },
+      "id": "pg-update-queue-sent",
+      "name": "PG: Mark Queue Sent",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [2220, 480],
+      "credentials": {
+        "postgres": {
+          "id": "drip-postgres",
+          "name": "Drip Engine Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO email_logs (email_queue_id, contact_id, campaign_id, event_type, raw_payload, occurred_at)\nVALUES ($1::uuid, $2::uuid, $3::uuid, 'sent', $4::jsonb, NOW())",
+        "additionalFields": {
+          "queryParams": "={{ JSON.stringify([$json.queue_id, $json.contact_id, $json.campaign_id, JSON.stringify($json.brevoResponse)]) }}"
+        }
+      },
+      "id": "pg-insert-log-sent",
+      "name": "PG: Log Sent Event",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [2440, 480],
+      "credentials": {
+        "postgres": {
+          "id": "drip-postgres",
+          "name": "Drip Engine Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM drip_steps\nWHERE campaign_id = $1::uuid\n  AND step_order   = $2::int + 1",
+        "additionalFields": {
+          "queryParams": "={{ JSON.stringify([$json.campaign_id, $json.step_order]) }}"
+        }
+      },
+      "id": "pg-fetch-next-step",
+      "name": "PG: Fetch Next Step",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [2660, 480],
+      "credentials": {
+        "postgres": {
+          "id": "drip-postgres",
+          "name": "Drip Engine Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "code": {
+          "execute": {
+            "code": "// Merge next-step data with the sent-email context\nconst prevItem = $('PG: Log Sent Event').item.json;\nconst nextSteps = $input.all();\nif (nextSteps.length === 0 || !nextSteps[0].json.id) {\n  return [{ json: { ...prevItem, nextStep: null } }];\n}\nreturn [{ json: { ...prevItem, nextStep: nextSteps[0].json } }];"
+          }
+        }
+      },
+      "id": "code-merge-next-step",
+      "name": "Code: Merge Next Step",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2880, 480]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "has-next-step",
+              "leftValue": "={{ $json.nextStep }}",
+              "rightValue": "",
+              "operator": {
+                "type": "object",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-has-next-step",
+      "name": "IF: Next Step Exists?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [3100, 480]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO email_queue\n  (subscriber_sequence_id, campaign_id, contact_id, step_order, scheduled_for, status)\nVALUES\n  ($1::uuid, $2::uuid, $3::uuid, $4::int,\n   NOW() + ($5::int || ' days')::INTERVAL,\n   'pending');\n\nUPDATE subscriber_sequences\nSET current_step_order = $4::int, updated_at = NOW()\nWHERE id = $1::uuid",
+        "additionalFields": {
+          "queryParams": "={{ JSON.stringify([\n  $json.subscriber_sequence_id,\n  $json.campaign_id,\n  $json.contact_id,\n  $json.nextStep.step_order,\n  $json.nextStep.delay_days\n]) }}"
+        }
+      },
+      "id": "pg-queue-next-step",
+      "name": "PG: Queue Next Step",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [3320, 360],
+      "credentials": {
+        "postgres": {
+          "id": "drip-postgres",
+          "name": "Drip Engine Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE subscriber_sequences\nSET status = 'completed', updated_at = NOW()\nWHERE id = $1::uuid",
+        "additionalFields": {
+          "queryParams": "={{ JSON.stringify([$json.subscriber_sequence_id]) }}"
+        }
+      },
+      "id": "pg-complete-sequence",
+      "name": "PG: Complete Sequence",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [3320, 620],
+      "credentials": {
+        "postgres": {
+          "id": "drip-postgres",
+          "name": "Drip Engine Postgres"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Execute Workflow Trigger": {
+      "main": [[{"node": "Code: Parse Input", "type": "main", "index": 0}]]
+    },
+    "Code: Parse Input": {
+      "main": [[{"node": "PG: Check Suppression", "type": "main", "index": 0}]]
+    },
+    "PG: Check Suppression": {
+      "main": [[{"node": "IF: Is Suppressed?", "type": "main", "index": 0}]]
+    },
+    "IF: Is Suppressed?": {
+      "main": [
+        [{"node": "Set: Skipped (Suppressed)", "type": "main", "index": 0}],
+        [{"node": "Code: Rate Limit Check", "type": "main", "index": 0}]
+      ]
+    },
+    "Code: Rate Limit Check": {
+      "main": [[{"node": "IF: Rate Limited?", "type": "main", "index": 0}]]
+    },
+    "IF: Rate Limited?": {
+      "main": [
+        [{"node": "Set: Skipped (Rate Limited)", "type": "main", "index": 0}],
+        [{"node": "Code: Personalise Email", "type": "main", "index": 0}]
+      ]
+    },
+    "Code: Personalise Email": {
+      "main": [[{"node": "HTTP: Send via Brevo", "type": "main", "index": 0}]]
+    },
+    "HTTP: Send via Brevo": {
+      "main": [[{"node": "Code: Extract messageId", "type": "main", "index": 0}]]
+    },
+    "Code: Extract messageId": {
+      "main": [[{"node": "PG: Mark Queue Sent", "type": "main", "index": 0}]]
+    },
+    "PG: Mark Queue Sent": {
+      "main": [[{"node": "PG: Log Sent Event", "type": "main", "index": 0}]]
+    },
+    "PG: Log Sent Event": {
+      "main": [[{"node": "PG: Fetch Next Step", "type": "main", "index": 0}]]
+    },
+    "PG: Fetch Next Step": {
+      "main": [[{"node": "Code: Merge Next Step", "type": "main", "index": 0}]]
+    },
+    "Code: Merge Next Step": {
+      "main": [[{"node": "IF: Next Step Exists?", "type": "main", "index": 0}]]
+    },
+    "IF: Next Step Exists?": {
+      "main": [
+        [{"node": "PG: Queue Next Step", "type": "main", "index": 0}],
+        [{"node": "PG: Complete Sequence", "type": "main", "index": 0}]
+      ]
+    }
+  },
+  "settings": {
+    "errorWorkflow": "",
+    "saveManualExecutions": true,
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": ["drip-engine"],
+  "meta": {
+    "instanceId": "drip-engine-local"
+  }
+}

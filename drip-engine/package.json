@@ -1,0 +1,17 @@
+{
+  "name": "brodcast-message",
+  "version": "1.0.0",
+  "description": "A production-grade email drip automation system built on **n8n** workflows and **PostgreSQL**. Replaces a FastAPI + Celery + Redis + PostgreSQL stack with zero-Redis, schema-identical architecture.",
+  "main": "test-campaign.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "dotenv": "^17.4.0",
+    "pg": "^8.20.0"
+  }
+}

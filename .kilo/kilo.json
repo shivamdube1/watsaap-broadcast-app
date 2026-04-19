@@ -1,0 +1,11 @@
+{
+  "$schema": "https://app.kilo.ai/config.json",
+  "permission": {
+    "read": {
+      "E:/watsaap broadcast/.kilo/get-shit-done/*": "allow"
+    },
+    "external_directory": {
+      "E:/watsaap broadcast/.kilo/get-shit-done/*": "allow"
+    }
+  }
+}

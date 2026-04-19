@@ -1,0 +1,11 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "permission": {
+    "read": {
+      "E:/watsaap broadcast/.opencode/get-shit-done/*": "allow"
+    },
+    "external_directory": {
+      "E:/watsaap broadcast/.opencode/get-shit-done/*": "allow"
+    }
+  }
+}

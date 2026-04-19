@@ -1,0 +1,17 @@
+[
+  {
+    "status": "pending",
+    "created_at": "2026-04-04T17:44:51.851Z",
+    "esp_message_id": null
+  },
+  {
+    "status": "sent",
+    "created_at": "2026-04-04T17:29:56.403Z",
+    "esp_message_id": "<202604041729.24324756150@smtp-relay.mailin.fr>"
+  },
+  {
+    "status": "sent",
+    "created_at": "2026-04-04T17:29:55.302Z",
+    "esp_message_id": "<202604041729.59782610555@smtp-relay.mailin.fr>"
+  }
+]

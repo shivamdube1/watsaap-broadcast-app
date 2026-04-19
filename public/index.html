@@ -3,2853 +3,896 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>Watsaap Broadcast - Bulk Messaging</title>
-
-    <!-- PWA Manifest & Theme -->
-    <link rel="manifest" href="/manifest.json">
-    <meta name="theme-color" content="#25D366">
+    <meta name="theme-color" content="#111b21">
     <meta name="mobile-web-app-capable" content="yes">
-
-    <!-- iOS (Safari) PWA support -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="WA Broadcast">
+    <meta name="apple-mobile-web-app-title" content="Broadcast Pro">
+    <link rel="manifest" href="/manifest.json">
     <link rel="apple-touch-icon" href="/icons/icon-192.png">
-
-    <!-- SEO -->
-    <meta name="description" content="WhatsApp bulk messaging — send broadcasts to your contacts from any device.">
-
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
+    <title>Watsaap Broadcast Pro</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        
+        *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+
         :root {
-            --primary: #25D366;
-            --primary-dark: #128C7E;
-            --accent: #00BCD4;
-            --logo-navy: #0d1b2e;
-            --brand-gradient: linear-gradient(135deg, #25D366, #00BCD4);
-            --bg-dark: #0d1420;
-            --bg-card: #162030;
-            --bg-input: #1e2e40;
-            --text-primary: #E9EDEF;
-            --text-secondary: #8696A0;
-            --border: #243447;
-            --danger: #DC3545;
-            --success: #28A745;
-            --warning: #FFC107;
-            --header-h: 60px;
-            --bottom-nav-h: 64px;
-            --safe-bottom: env(safe-area-inset-bottom, 0px);
+            --primary:       #25D366;
+            --primary-dark:  #1da851;
+            --primary-glow:  rgba(37,211,102,.18);
+            --bg-dark:       #0b141a;
+            --bg-sidebar:    #111b21;
+            --bg-card:       #1f2c34;
+            --bg-input:      #2a3942;
+            --text-main:     #e9edef;
+            --text-dim:      #8696a0;
+            --border:        rgba(255,255,255,.09);
+            --accent-blue:   #00a884;
+            --danger:        #ef4444;
+            --sidebar-w:     280px;
+            --header-h:      56px;
+            --bottomnav-h:   64px;
         }
 
-        /* ──────────── MOBILE-FIRST BASE ──────────── */
         html { height: 100%; }
         body {
+            font-family: 'Outfit', sans-serif;
             background: var(--bg-dark);
-            font-family: 'Inter', sans-serif;
-            color: var(--text-primary);
-            min-height: 100%;
-            overflow-x: hidden;
-        }
-
-        /* ── GLOBAL TOUCH TARGET MIN SIZE ── */
-        button, [role="button"] { min-height: 44px; }
-        input, textarea, select { min-height: 44px; font-size: 16px !important; } /* 16px prevents iOS zoom */
-
-        /* ── SCROLLBAR ── */
-        ::-webkit-scrollbar { width: 4px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
-
-        /* ── CONTAINER ── */
-        .container {
-            max-width: 480px;
-            margin: 0 auto;
-            padding-top: var(--header-h);
-            padding-bottom: calc(var(--bottom-nav-h) + var(--safe-bottom) + 8px);
-            min-height: 100vh;
-        }
-
-        /* ── HEADER ── */
-        header {
-            position: fixed;
-            top: 0; left: 0; right: 0;
-            height: var(--header-h);
-            background: var(--bg-card);
-            border-bottom: 1px solid var(--border);
+            color: var(--text-main);
+            height: 100%;
+            overflow: hidden;
             display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 0 16px;
-            z-index: 100;
-            max-width: 480px;
-            margin: 0 auto;
-        }
-
-        /* center the header within full-width bar */
-        body > .container > header, header { left: 50%; transform: translateX(-50%); width: 100%; max-width: 480px; }
-
-        .logo {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            font-size: 17px;
-            font-weight: 700;
-        }
-        .logo img {
-            width: 34px;
-            height: 34px;
-            border-radius: 8px;
-            object-fit: cover;
-        }
-        .logo-text {
-            background: var(--brand-gradient);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-
-        /* ── BOTTOM NAV (MOBILE) ── */
-        .bottom-nav {
-            position: fixed;
-            bottom: 0; left: 50%; transform: translateX(-50%);
-            width: 100%; max-width: 480px;
-            height: calc(var(--bottom-nav-h) + var(--safe-bottom));
-            padding-bottom: var(--safe-bottom);
-            background: var(--bg-card);
-            border-top: 1px solid var(--border);
-            display: flex;
-            align-items: center;
-            z-index: 100;
-        }
-        .bottom-nav-item {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            gap: 4px;
-            height: var(--bottom-nav-h);
-            cursor: pointer;
-            color: var(--text-secondary);
-            font-size: 10px;
-            font-weight: 500;
-            letter-spacing: 0.3px;
-            text-transform: uppercase;
-            border: none;
-            background: transparent;
-            font-family: inherit;
-            transition: color 0.2s;
-            -webkit-tap-highlight-color: transparent;
-            padding: 0;
-            min-height: unset;
-        }
-        .bottom-nav-item i { font-size: 20px; transition: transform 0.2s; }
-        .bottom-nav-item.active { color: var(--primary); }
-        .bottom-nav-item.active i { transform: scale(1.1); }
-        .bottom-nav-item:active i { transform: scale(0.92); }
-
-        /* ── PAGE TABS (hide, replaced by bottom nav) ── */
-        .page-tabs { display: none; }
-
-        /* ── MAIN LAYOUT (single column mobile) ── */
-        .main-content {
-            display: flex;
-            flex-direction: column;
-            gap: 0;
-        }
-        .sidebar {
-            width: 100%;
-        }
-        .content {
-            width: 100%;
-        }
-
-        /* ── CARDS ── */
-        .card {
-            background: var(--bg-card);
-            border-radius: 16px;
-            padding: 16px;
-            margin: 12px 12px 0;
-            border: 1px solid var(--border);
-        }
-        .card-title {
-            font-size: 13px;
-            font-weight: 600;
-            color: var(--text-secondary);
-            text-transform: uppercase;
-            letter-spacing: 0.8px;
-            margin-bottom: 14px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        .card-title i { color: var(--primary); }
-
-        /* ── BUTTONS ── */
-        .btn {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            padding: 13px 20px;
-            border-radius: 12px;
-            font-size: 14px;
-            font-weight: 600;
-            cursor: pointer;
-            border: none;
-            font-family: inherit;
-            transition: all 0.18s;
-            -webkit-tap-highlight-color: transparent;
-        }
-        .btn:active { transform: scale(0.96); }
-        .btn-primary {
-            background: var(--brand-gradient);
-            color: white;
-            box-shadow: 0 4px 15px rgba(37,211,102,0.3);
-        }
-        .btn-primary:hover { box-shadow: 0 6px 20px rgba(37,211,102,0.45); }
-        .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
-        .btn-secondary {
-            background: var(--bg-input);
-            color: var(--text-primary);
-            border: 1px solid var(--border);
-        }
-        .btn-secondary:hover { background: var(--border); }
-        .btn-danger { background: rgba(220,53,69,0.15); color: var(--danger); border: 1px solid rgba(220,53,69,0.3); }
-
-        /* ── SEND BUTTON ── */
-        .send-btn {
-            width: calc(100% - 0px);
-            padding: 16px;
-            font-size: 16px;
-            border-radius: 14px;
-            margin-top: 12px;
-            letter-spacing: 0.3px;
-        }
-
-        /* ── INPUTS ── */
-        input[type="text"], input[type="password"], textarea, select {
-            width: 100%;
-            padding: 13px 16px;
-            background: var(--bg-input);
-            border: 1.5px solid var(--border);
-            border-radius: 12px;
-            color: var(--text-primary);
-            font-family: inherit;
-            outline: none;
-            transition: border-color 0.2s, box-shadow 0.2s;
-        }
-        input:focus, textarea:focus {
-            border-color: var(--primary);
-            box-shadow: 0 0 0 3px rgba(37,211,102,0.1);
-        }
-        textarea { min-height: 110px; resize: vertical; line-height: 1.5; }
-        .form-group { margin-bottom: 14px; }
-        .form-group label { display: block; font-size: 12px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.7px; margin-bottom: 8px; }
-
-        /* ── CONTACT CHIPS / LIST ── */
-        .contact-list-container {
-            max-height: 240px;
-            overflow-y: auto;
-            border-radius: 12px;
-            border: 1px solid var(--border);
-        }
-        .contact-item {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 12px 14px;
-            cursor: pointer;
-            transition: background 0.15s;
-            border-bottom: 1px solid var(--border);
-        }
-        .contact-item:last-child { border-bottom: none; }
-        .contact-item:active { background: var(--bg-input); }
-        .contact-item.selected { background: rgba(37,211,102,0.06); }
-        .contact-avatar {
-            width: 38px; height: 38px;
-            border-radius: 50%;
-            background: var(--brand-gradient);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 700;
-            font-size: 15px;
-            color: white;
-            flex-shrink: 0;
-        }
-        .contact-name { font-size: 14px; font-weight: 500; }
-        .contact-number { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
-
-        /* ── STATUS DOT ── */
-        .status-dot {
-            width: 10px; height: 10px; border-radius: 50%;
-            background: var(--text-secondary);
-        }
-        .status-dot.connected { background: var(--primary); box-shadow: 0 0 6px rgba(37,211,102,0.6); }
-        .status-dot.reconnecting { background: var(--warning); }
-        .connection-status {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 12px;
-            color: var(--text-secondary);
-        }
-
-        /* ── QR SECTION ── */
-        .qr-section { text-align: center; }
-        #qrCode img { max-width: 200px; border-radius: 12px; border: 3px solid var(--border); }
-        .qr-instructions { font-size: 13px; color: var(--text-secondary); line-height: 1.8; }
-
-        /* ── RECIPIENT TABS ── */
-        .recipient-tabs {
-            display: flex;
-            gap: 4px;
-            background: var(--bg-input);
-            padding: 4px;
-            border-radius: 10px;
-            margin-bottom: 12px;
-        }
-        .recipient-tab {
-            flex: 1;
-            padding: 9px 6px;
-            background: transparent;
-            border: none;
-            border-radius: 8px;
-            color: var(--text-secondary);
-            font-size: 12px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.2s;
-            font-family: inherit;
-            text-align: center;
-            -webkit-tap-highlight-color: transparent;
-            min-height: 36px;
-        }
-        .recipient-tab.active { background: var(--bg-card); color: var(--primary); font-weight: 600; }
-        .tab-content { display: none; }
-        .tab-content.active { display: block; }
-
-        /* ── PROGRESS ── */
-        .progress-section { display: none; margin-top: 14px; }
-        .progress-section.show { display: block; }
-        .progress-bar-container { background: var(--bg-input); border-radius: 12px; padding: 16px; }
-        .progress-bar { height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; margin-bottom: 10px; }
-        .progress-fill { height: 100%; background: var(--brand-gradient); width: 0%; transition: width 0.3s; }
-        .progress-text { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-secondary); }
-        .progress-current { color: var(--primary); font-weight: 600; }
-
-        /* ── RESULTS ── */
-        .results-section { display: none; margin-top: 12px; }
-        .results-section.show { display: block; }
-        .results-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; }
-        .result-card {
-            background: var(--bg-input);
-            border-radius: 12px;
-            padding: 14px 10px;
-            text-align: center;
-        }
-        .result-card .result-number { font-size: 22px; font-weight: 700; }
-        .result-card .result-label { font-size: 11px; color: var(--text-secondary); margin-top: 4px; }
-        .result-card.sent .result-number { color: var(--success); }
-        .result-card.failed .result-number { color: var(--danger); }
-        .result-card.total .result-number { color: var(--primary); }
-
-        /* ── TOAST ── */
-        .toast {
-            position: fixed;
-            bottom: calc(var(--bottom-nav-h) + var(--safe-bottom) + 12px);
-            left: 50%;
-            transform: translateX(-50%) translateY(20px);
-            background: var(--bg-card);
-            border-radius: 10px;
-            padding: 12px 20px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-            opacity: 0;
-            transition: all 0.3s;
-            z-index: 5000;
-            font-size: 14px;
-            white-space: nowrap;
-        }
-        .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
-        .toast.success { border-left: 3px solid var(--success); }
-        .toast.error { border-left: 3px solid var(--danger); }
-
-        /* ── MODAL ── */
-        .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: none; align-items: flex-end; justify-content: center; z-index: 1000; backdrop-filter: blur(4px); }
-        .modal.show { display: flex; }
-        .modal-content {
-            background: var(--bg-card);
-            border-radius: 24px 24px 0 0;
-            padding: 24px 20px calc(24px + var(--safe-bottom));
-            width: 100%;
-            max-width: 480px;
-            max-height: 85vh;
-            overflow-y: auto;
-            animation: slideUp 0.3s ease;
-        }
-        @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
-        .modal-content h3 { margin-bottom: 16px; font-size: 17px; }
-        .modal-content p { color: var(--text-secondary); margin-bottom: 20px; font-size: 14px; }
-        .modal-content .btn-group { display: flex; gap: 10px; }
-
-        /* ── BROADCAST LIST CARDS ── */
-        .bl-grid { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
-        .bl-card {
-            background: var(--bg-input);
-            border-radius: 14px;
-            padding: 16px;
-            border: 1px solid var(--border);
-            display: flex;
-            align-items: center;
-            gap: 14px;
-        }
-        .bl-icon {
-            width: 46px; height: 46px;
-            background: var(--brand-gradient);
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 20px;
-            color: white;
-            flex-shrink: 0;
-        }
-        .bl-info { flex: 1; min-width: 0; }
-        .bl-name { font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .bl-meta { font-size: 12px; color: var(--text-secondary); margin-top: 3px; }
-        .bl-actions { display: flex; gap: 6px; flex-shrink: 0; }
-        .bl-actions button {
-            width: 34px; height: 34px; min-height: 34px;
-            border-radius: 8px;
-            border: 1px solid var(--border);
-            background: var(--bg-card);
-            color: var(--text-secondary);
-            font-size: 13px;
-            cursor: pointer;
-            display: flex; align-items: center; justify-content: center;
-            transition: all 0.2s;
-            -webkit-tap-highlight-color: transparent;
-        }
-        .bl-actions button:active { transform: scale(0.9); }
-
-        /* ── HELP TEXT ── */
-        .help-text { font-size: 11px; color: var(--text-secondary); margin-top: 6px; }
-
-        /* ── STATS ROW ── */
-        .stats-row { display: flex; gap: 8px; margin-bottom: 12px; }
-        .stat-card {
-            flex: 1;
-            background: var(--bg-input);
-            border-radius: 12px;
-            padding: 12px;
-            text-align: center;
-        }
-        .stat-value { font-size: 20px; font-weight: 700; background: var(--brand-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
-        .stat-label { font-size: 11px; color: var(--text-secondary); margin-top: 3px; }
-
-        /* ── GROUP ITEMS ── */
-        .group-item {
-            display: flex; align-items: center; gap: 12px;
-            padding: 12px; cursor: pointer;
-            border-radius: 10px;
-            border-bottom: 1px solid var(--border);
-            transition: background 0.15s;
-        }
-        .group-item:last-child { border-bottom: none; }
-        .group-item:active { background: var(--bg-input); }
-        .edit-btn, .delete-btn {
-            background: transparent; border: none;
-            cursor: pointer; color: var(--text-secondary);
-            padding: 6px; border-radius: 6px;
-            font-size: 14px; min-height: 36px; width: 36px;
-            display: flex; align-items: center; justify-content: center;
-        }
-        .delete-btn:hover { color: var(--danger); }
-        .edit-btn:hover { color: var(--primary); }
-
-        /* ── SELECTED COUNT BADGE ── */
-        .selected-count {
-            font-size: 12px;
-            color: var(--text-secondary);
-            margin-top: 8px;
-            padding: 6px 10px;
-            background: var(--bg-input);
-            border-radius: 8px;
-        }
-        .selected-count span { color: var(--primary); font-weight: 700; }
-
-        /* ── QUICK ACTIONS ── */
-        .quick-actions { display: flex; flex-direction: column; gap: 8px; }
-        .quick-actions .btn { width: 100%; justify-content: flex-start; }
-
-        /* ── CONNECTED INFO ── */
-        #connectedInfo { padding: 12px; background: rgba(37,211,102,0.07); border-radius: 10px; border: 1px solid rgba(37,211,102,0.2); }
-        #connectedName { font-size: 15px; font-weight: 600; }
-        #connectedNumber { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
-
-        /* ── SECTION SPACING ── */
-        .recipients-section { margin-bottom: 14px; }
-        .recipients-section > label { font-size: 12px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.7px; margin-bottom: 8px; display: block; }
-
-        /* ── BL MODAL / OVERLAY ── */
-        .bl-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 900; display: none; align-items: flex-end; justify-content: center; backdrop-filter: blur(4px); }
-        .bl-overlay.show { display: flex; }
-        .bl-modal { background: var(--bg-card); border-radius: 24px 24px 0 0; padding: 24px 20px calc(24px + var(--safe-bottom)); width: 100%; max-width: 480px; max-height: 90vh; overflow-y: auto; animation: slideUp 0.3s ease; }
-        .bl-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
-        .bl-title { font-size: 17px; font-weight: 700; }
-        .bl-close { background: var(--bg-input); border: none; color: var(--text-secondary); width: 32px; height: 32px; border-radius: 8px; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; min-height: 32px; }
-
-        /* ── CONTACT CONTACT PICKER ── */
-        .contact-picker-section { max-height: 200px; overflow-y: auto; border: 1px solid var(--border); border-radius: 12px; }
-        .picker-contacts .contact-item, .picker-selected .contact-item { background: transparent; }
-
-        /* ── DESKTOP OVERRIDE ── */
-        @media (min-width: 481px) {
-            header { position: fixed; top: 0; left: 50%; transform: translateX(-50%); }
-            .bottom-nav { position: fixed; }
-            .main-content { flex-direction: row; align-items: flex-start; }
-            .sidebar { width: 300px; flex-shrink: 0; }
-            .content { flex: 1; }
+            scrollbar-width: thin;
+            scrollbar-color: var(--border) transparent;
         }
 
         /* ══════════════════════════════════════════
-           MOBILE FIXES — complete override
-           ══════════════════════════════════════════ */
-
-        /* Hide sidebar inside Broadcast tab on mobile — it gets its own Connect tab */
-        @media (max-width: 480px) {
-            #broadcastSidebar { display: none !important; }
-        }
-
-        /* ── Header: keep single line ── */
-        .logo-text {
-            white-space: nowrap;
-            font-size: 15px;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            max-width: 160px;
-        }
-        .logo img { width: 30px; height: 30px; flex-shrink: 0; }
-
-        /* ── Contact list: proper alignment ── */
-        .contact-item {
-            display: flex !important;
-            align-items: center !important;
-            gap: 10px !important;
-            padding: 11px 14px !important;
-        }
-
-        /* Custom checkbox — larger tap target */
-        .contact-item input[type="checkbox"] {
-            width: 20px !important;
-            height: 20px !important;
-            min-height: 20px !important;
-            accent-color: var(--primary);
-            cursor: pointer;
-            flex-shrink: 0;
-        }
-
-        .contact-avatar {
-            width: 40px !important;
-            height: 40px !important;
-            min-width: 40px;
-            border-radius: 50% !important;
-            font-size: 16px !important;
-            flex-shrink: 0;
-        }
-
-        .contact-info {
-            flex: 1;
-            min-width: 0;
-        }
-
-        .contact-name {
-            font-size: 14px !important;
-            font-weight: 500;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        .contact-number {
-            font-size: 12px !important;
-            color: var(--text-secondary);
-            margin-top: 1px !important;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        /* ── Recipient tabs: fix min-height conflict ── */
-        .recipient-tab {
-            min-height: 38px !important;
-            font-size: 12px !important;
-        }
-
-        /* ── Contact list container ── */
-        .contact-list-container {
-            max-height: 260px;
-            overflow-y: auto;
-            -webkit-overflow-scrolling: touch;
-        }
-
-        /* ── Card padding on mobile ── */
-        @media (max-width: 480px) {
-            .card { padding: 14px 12px; margin: 10px 10px 0; }
-            .content .card { margin: 10px 10px 10px; }
-        }
-
-        /* ── Bottom groups/manual tab search inputs ── */
-        #groupSearch {
-            width: 100%;
-            padding: 11px 14px;
-            border: 1.5px solid var(--border);
-            border-radius: 10px;
-            background: var(--bg-input);
-            color: var(--text-primary);
-            font-family: inherit;
-            font-size: 15px;
-            outline: none;
-        }
-
-
-        .page-tabs {
-            display: flex;
-            gap: 4px;
-            background: var(--bg-card);
-            padding: 6px;
-            border-radius: 12px;
-            margin-bottom: 24px;
-        }
-        .page-tab {
-            flex: 1;
-            padding: 10px 16px;
-            background: transparent;
-            border: none;
-            border-radius: 8px;
-            color: var(--text-secondary);
-            font-size: 14px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.2s;
-            font-family: inherit;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-        }
-        .page-tab.active {
-            background: var(--primary);
-            color: white;
-        }
-        .page-tab:hover:not(.active) { background: var(--bg-input); color: var(--text-primary); }
-        .page-panel { display: none; }
-        .page-panel.active { display: block; }
-
-        /* Broadcast List Styles */
-        .bl-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-            gap: 16px;
-            margin-top: 16px;
-        }
-        .bl-card {
-            background: var(--bg-input);
-            border-radius: 12px;
-            padding: 20px;
-            border: 1px solid var(--border);
-            transition: border-color 0.2s;
-            position: relative;
-        }
-        .bl-card:hover { border-color: var(--primary); }
-        .bl-card-title {
-            font-weight: 600;
-            font-size: 15px;
-            margin-bottom: 4px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        .bl-card-title i { color: var(--accent); }
-        .bl-card-desc { font-size: 12px; color: var(--text-secondary); margin-bottom: 12px; }
-        .bl-card-meta {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-        .bl-badge {
-            background: rgba(37,211,102,0.15);
-            color: var(--primary);
-            padding: 4px 10px;
-            border-radius: 20px;
-            font-size: 12px;
-            font-weight: 600;
-        }
-        .bl-actions { display: flex; gap: 6px; }
-        .bl-send-btn {
-            background: var(--primary);
-            color: white;
-            border: none;
-            padding: 6px 12px;
-            border-radius: 6px;
-            font-size: 12px;
-            cursor: pointer;
-            font-family: inherit;
-            transition: background 0.2s;
-            display: flex;
-            align-items: center;
-            gap: 4px;
-        }
-        .bl-send-btn:hover { background: var(--primary-dark); }
-        .bl-empty {
-            text-align: center;
-            padding: 60px 20px;
-            color: var(--text-secondary);
-        }
-        .bl-empty i { font-size: 48px; margin-bottom: 16px; color: var(--border); }
-        .bl-toolbar {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 12px;
-            flex-wrap: wrap;
-        }
-        .bl-search {
-            flex: 1;
-            min-width: 200px;
-            padding: 10px 14px;
-            background: var(--bg-input);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            color: var(--text-primary);
-            font-size: 14px;
-            font-family: inherit;
-            outline: none;
-        }
-        .bl-search:focus { border-color: var(--primary); }
-
-        /* BL Modal */
-        .bl-modal-content {
-            background: var(--bg-card);
-            border-radius: 16px;
-            padding: 30px;
-            max-width: 560px;
-            width: 95%;
-            max-height: 90vh;
-            overflow-y: auto;
-        }
-        .bl-modal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-        }
-        .bl-modal-header h3 { margin: 0; font-size: 18px; }
-        .bl-close { cursor: pointer; font-size: 22px; color: var(--text-secondary); background: none; border: none; }
-        .bl-member-list {
-            max-height: 240px;
-            overflow-y: auto;
-            background: var(--bg-input);
-            border-radius: 8px;
-            margin-top: 8px;
-        }
-        .bl-stats-row {
-            display: flex;
-            gap: 12px;
-            margin-bottom: 20px;
-        }
-        .bl-stat {
-            flex: 1;
-            background: var(--bg-input);
-            border-radius: 10px;
-            padding: 14px;
-            text-align: center;
-        }
-        .bl-stat-num { font-size: 22px; font-weight: 700; color: var(--primary); }
-        .bl-stat-label { font-size: 11px; color: var(--text-secondary); margin-top: 2px; }
-
-        body {
-            font-family: 'Inter', sans-serif;
-            background: var(--bg-dark);
-            color: var(--text-primary);
-            min-height: 100vh;
-        }
-
-        /* ═══════════════════════════════════════════════════
-           MOBILE-FIRST LAYOUT — all overrides happen here
-           ═══════════════════════════════════════════════════ */
-
-        /* Container: max mobile width, account for fixed header + bottom nav */
-        .container {
-            max-width: 480px;
-            margin: 0 auto;
-            padding: 0 0 80px 0;
-            padding-top: 60px;
-        }
-
-        /* Header: fixed, single-line */
-        header {
-            position: fixed;
-            top: 0; left: 50%;
-            transform: translateX(-50%);
-            width: 100%; max-width: 480px;
-            height: 60px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 0 14px;
-            background: var(--bg-card);
-            border-bottom: 1px solid var(--border);
-            z-index: 200;
-            margin: 0;
-        }
-
-        .logo {
-            display: flex;
-            align-items: center;
-            gap: 9px;
-            font-size: 15px;
-            font-weight: 700;
-            white-space: nowrap;
-        }
-
-        .logo img { width: 30px; height: 30px; border-radius: 7px; flex-shrink: 0; }
-        .logo i { color: var(--primary); font-size: 22px; display: none; }
-
-        .connection-status {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            font-size: 12px;
-            color: var(--text-secondary);
-        }
-
-        .status-dot {
-            width: 9px; height: 9px; border-radius: 50%;
-            background: var(--text-secondary); flex-shrink: 0;
-        }
-
-        .status-dot.connected {
-            background: var(--primary);
-            box-shadow: 0 0 6px rgba(37,211,102,0.6);
-        }
-
-        .status-dot.reconnecting {
-            background: var(--warning);
-            animation: pulse 1s infinite;
-        }
-
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.4; }
-        }
-
-        /* Main layout: single column on mobile */
-        .main-content {
-            display: flex;
-            flex-direction: column;
-        }
-
-        /* Cards */
-        .card {
-            background: var(--bg-card);
-            border-radius: 14px;
-            padding: 14px 12px;
-            margin: 10px 10px 0;
-            border: 1px solid var(--border);
-        }
-
-        .card-title {
-            font-size: 12px;
-            font-weight: 700;
-            color: var(--text-secondary);
-            text-transform: uppercase;
-            letter-spacing: 0.8px;
-            margin-bottom: 12px;
-            display: flex;
-            align-items: center;
-            gap: 7px;
-        }
-
-        .card-title i { color: var(--primary); }
-
-        /* QR Section */
-        .qr-section { text-align: center; }
-
-        #qrCode {
-            background: white;
-            padding: 14px;
-            border-radius: 10px;
-            display: none;
-            margin-bottom: 14px;
-        }
-
-        #qrCode img { width: 180px; height: 180px; }
-        .qr-instructions { color: var(--text-secondary); font-size: 12px; line-height: 1.8; }
-
-        /* Buttons */
-        .btn {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 7px;
-            padding: 13px 18px;
-            border: none;
-            border-radius: 12px;
-            font-size: 14px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.18s;
-            font-family: inherit;
-            -webkit-tap-highlight-color: transparent;
-            min-height: 48px;
-        }
-
-        .btn:active { transform: scale(0.96); }
-
-        .btn-primary {
-            background: var(--brand-gradient);
-            color: white;
-            box-shadow: 0 4px 14px rgba(37,211,102,0.3);
-        }
-
-        .btn-primary:hover { box-shadow: 0 6px 20px rgba(37,211,102,0.45); }
-        .btn-primary:disabled { opacity: 0.45; cursor: not-allowed; transform: none; box-shadow: none; }
-
-        .btn-danger { background: rgba(220,53,69,0.15); color: var(--danger); border: 1px solid rgba(220,53,69,0.3); }
-
-        .btn-secondary {
-            background: var(--bg-input);
-            color: var(--text-primary);
-            border: 1px solid var(--border);
-        }
-
-        .btn-secondary:hover { background: var(--border); }
-        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-
-        /* Form elements */
-        .form-group { margin-bottom: 13px; }
-
-        .form-group label {
-            display: block;
-            font-size: 12px;
-            font-weight: 600;
-            color: var(--text-secondary);
-            text-transform: uppercase;
-            letter-spacing: 0.6px;
-            margin-bottom: 7px;
-        }
-
-        .form-group input,
-        .form-group textarea,
-        .form-group select,
-        input[type="text"],
-        input[type="password"],
-        textarea {
-            width: 100%;
-            padding: 13px 14px;
-            background: var(--bg-input);
-            border: 1.5px solid var(--border);
-            border-radius: 11px;
-            color: var(--text-primary);
-            font-size: 16px; /* Prevents iOS auto-zoom */
-            font-family: inherit;
-            outline: none;
-            transition: border-color 0.2s, box-shadow 0.2s;
-        }
-
-        .form-group input:focus,
-        .form-group textarea:focus,
-        input[type="text"]:focus,
-        input[type="password"]:focus,
-        textarea:focus {
-            border-color: var(--primary);
-            box-shadow: 0 0 0 3px rgba(37,211,102,0.1);
-        }
-
-        .form-group textarea, textarea {
-            min-height: 110px;
-            resize: vertical;
-            line-height: 1.5;
-        }
-
-        /* Recipients section */
-        .recipients-section { margin-bottom: 12px; }
-
-        .recipient-tabs {
-            display: flex;
-            gap: 4px;
-            background: var(--bg-input);
-            padding: 4px;
-            border-radius: 10px;
-            margin-bottom: 12px;
-        }
-
-        .recipient-tab {
-            flex: 1;
-            padding: 9px 4px;
-            background: transparent;
-            border: none;
-            border-radius: 7px;
-            color: var(--text-secondary);
-            font-size: 11px;
-            font-weight: 500;
-            cursor: pointer;
-            text-align: center;
-            transition: all 0.2s;
-            font-family: inherit;
-            min-height: 36px;
-            -webkit-tap-highlight-color: transparent;
-        }
-
-        .recipient-tab.active {
-            background: var(--bg-card);
-            color: var(--primary);
-            font-weight: 700;
-            box-shadow: 0 1px 4px rgba(0,0,0,0.2);
-        }
-
-        .tab-content { display: none; }
-        .tab-content.active { display: block; }
-
-        /* Contact list */
-        .contact-list-container {
-            max-height: 250px;
-            overflow-y: auto;
-            -webkit-overflow-scrolling: touch;
-            border-radius: 11px;
-            border: 1.5px solid var(--border);
-        }
-
-        .contact-item {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            padding: 11px 12px;
-            cursor: pointer;
-            transition: background 0.15s;
-            border-bottom: 1px solid var(--border);
-        }
-
-        .contact-item:last-child { border-bottom: none; }
-        .contact-item:active { background: rgba(37,211,102,0.05); }
-        .contact-item.selected { background: rgba(37,211,102,0.06); }
-
-        .contact-item input[type="checkbox"] {
-            width: 20px !important;
-            height: 20px !important;
-            min-height: 20px !important;
-            accent-color: var(--primary);
-            cursor: pointer;
-            flex-shrink: 0;
-        }
-
-        .contact-avatar {
-            width: 38px; height: 38px; min-width: 38px;
-            border-radius: 50%;
-            background: var(--brand-gradient);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 700;
-            font-size: 15px;
-            color: white;
-            flex-shrink: 0;
-        }
-
-        .contact-info { flex: 1; min-width: 0; }
-
-        .contact-name {
-            font-size: 14px;
-            font-weight: 500;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        .contact-number {
-            font-size: 12px;
-            color: var(--text-secondary);
-            margin-top: 2px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        .selected-count {
-            font-size: 12px;
-            color: var(--text-secondary);
-            margin-top: 8px;
-            padding: 8px 12px;
-            background: var(--bg-input);
-            border-radius: 8px;
-            text-align: center;
-        }
-
-        .selected-count span { color: var(--primary); font-weight: 700; }
-
-        /* Media upload */
-        .file-upload {
-            border: 2px dashed var(--border);
-            border-radius: 12px;
-            padding: 22px;
-            text-align: center;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .file-upload:hover, .file-upload:active { border-color: var(--primary); background: rgba(37,211,102,0.05); }
-        .file-upload i { font-size: 28px; color: var(--primary); margin-bottom: 8px; display: block; }
-        .file-upload p { color: var(--text-secondary); font-size: 13px; }
-        .file-upload small { color: var(--text-secondary); font-size: 11px; }
-
-        .media-upload-area { margin-top: 14px; padding: 14px; background: var(--bg-input); border-radius: 10px; display: none; }
-        .media-upload-area.show { display: block; }
-
-        .media-preview {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            padding: 10px;
-            background: var(--bg-card);
-            border-radius: 8px;
-        }
-
-        .media-preview i { font-size: 22px; color: var(--primary); }
-        .media-preview .media-info { flex: 1; min-width: 0; }
-        .media-preview .media-name { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .media-preview .remove-media {
-            background: var(--danger); color: white; border: none;
-            width: 26px; height: 26px; border-radius: 50%; cursor: pointer; flex-shrink: 0;
-            display: flex; align-items: center; justify-content: center; font-size: 14px;
-        }
-
-        /* Action buttons (edit/delete in group items) */
-        .delete-btn {
-            background: rgba(220,53,69,0.1); color: var(--danger); border: none;
-            width: 34px; height: 34px; min-height: 34px; border-radius: 8px; cursor: pointer;
-            display: flex; align-items: center; justify-content: center; font-size: 13px;
-            transition: all 0.2s;
-        }
-        .delete-btn:hover { background: var(--danger); color: white; }
-
-        .edit-btn {
-            background: rgba(37,211,102,0.1); color: var(--primary); border: none;
-            width: 34px; height: 34px; min-height: 34px; border-radius: 8px; cursor: pointer;
-            display: flex; align-items: center; justify-content: center; font-size: 13px;
-            transition: all 0.2s;
-        }
-        .edit-btn:hover { background: var(--primary); color: white; }
-
-        .action-btns { display: flex; gap: 6px; }
-
-        /* Send button */
-        .send-btn {
-            width: 100%;
-            padding: 16px;
-            font-size: 15px;
-            border-radius: 13px;
-            margin-top: 12px;
-            letter-spacing: 0.3px;
-        }
-
-        /* Progress */
-        .progress-section { margin-top: 14px; display: none; }
-        .progress-section.show { display: block; }
-        .progress-bar-container { background: var(--bg-input); border-radius: 11px; padding: 14px; }
-        .progress-bar { height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; margin-bottom: 10px; }
-        .progress-fill { height: 100%; background: var(--brand-gradient); width: 0%; transition: width 0.3s; }
-        .progress-text { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-secondary); }
-        .progress-current { color: var(--primary); font-weight: 600; }
-
-        /* Results */
-        .results-section { margin-top: 12px; display: none; }
-        .results-section.show { display: block; }
-        .results-summary { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; margin-bottom: 14px; }
-        .result-stat { text-align: center; padding: 14px 8px; background: var(--bg-input); border-radius: 10px; }
-        .result-stat i { font-size: 20px; margin-bottom: 6px; display: block; }
-        .result-stat.success i { color: var(--success); }
-        .result-stat.failed i { color: var(--danger); }
-        .result-stat.total i { color: var(--primary); }
-        .result-stat .count { font-size: 22px; font-weight: 700; }
-        .result-stat .label { font-size: 11px; color: var(--text-secondary); margin-top: 2px; }
-
-        /* Toast — above bottom nav */
-        .toast {
-            position: fixed;
-            bottom: calc(64px + env(safe-area-inset-bottom, 0px) + 10px);
-            left: 50%;
-            transform: translateX(-50%) translateY(20px);
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            padding: 12px 18px;
-            display: flex;
-            align-items: center;
-            gap: 9px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.35);
-            opacity: 0;
-            transition: all 0.3s;
-            z-index: 5000;
-            font-size: 13px;
-            white-space: nowrap;
-        }
-
-        .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
-        .toast.success { border-left: 3px solid var(--success); }
-        .toast.error { border-left: 3px solid var(--danger); }
-
-        /* Help text */
-        .help-text { font-size: 11px; color: var(--text-secondary); margin-top: 5px; }
-
-        /* Modals — bottom sheet on mobile */
-        .modal {
-            position: fixed;
-            inset: 0;
-            background: rgba(0,0,0,0.7);
-            display: none;
-            align-items: flex-end;
-            justify-content: center;
-            z-index: 1000;
-            backdrop-filter: blur(3px);
-        }
-
-        .modal.show { display: flex; }
-
-        .modal-content {
-            background: var(--bg-card);
-            border-radius: 20px 20px 0 0;
-            padding: 22px 18px calc(22px + env(safe-area-inset-bottom, 0px));
-            width: 100%;
-            max-width: 480px;
-            text-align: center;
-            animation: slideUp 0.28s ease;
-        }
-
-        @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
-
-        .modal-content h3 { margin-bottom: 12px; font-size: 16px; }
-        .modal-content p { color: var(--text-secondary); margin-bottom: 18px; font-size: 14px; }
-        .modal-content .btn-group { display: flex; gap: 10px; }
-
-        /* Desktop override: restore 2-column sidebar on wide screens */
-        @media (min-width: 600px) {
-            .container { max-width: 960px; padding: 70px 20px 80px; }
-            header { padding: 0 20px; }
-            .main-content { flex-direction: row; align-items: flex-start; gap: 20px; }
-            #broadcastSidebar { display: block !important; width: 280px; flex-shrink: 0; }
-            .bottom-nav { display: none; }
-            .card { padding: 20px; margin: 0 0 16px 0; }
-            .logo { font-size: 18px; }
-            .logo img { width: 34px; height: 34px; }
-        }
-
-
-        /* PWA install banner — stays above bottom nav but below modals */
-        #pwaInstallBanner { z-index: 300 !important; bottom: calc(64px + env(safe-area-inset-bottom, 0px)) !important; }
-
-        /* ── Login Overlay ─────────────────────────────── */
+           LOGIN
+        ══════════════════════════════════════════ */
         #loginOverlay {
-            position: fixed;
-            inset: 0;
-            z-index: 9999;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: linear-gradient(135deg, #0a1628 0%, #111B21 40%, #0d2137 100%);
-            animation: bgPulse 8s ease-in-out infinite alternate;
-        }
-        @keyframes bgPulse {
-            0%   { background-position: 0% 50%; }
-            100% { background-position: 100% 50%; }
+            position: fixed; inset: 0; z-index: 9999;
+            display: flex; align-items: center; justify-content: center;
+            background: var(--bg-dark); padding: 20px;
+            transition: opacity .4s ease;
         }
         .login-card {
-            background: rgba(31, 44, 52, 0.7);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border: 1px solid rgba(37,211,102,0.2);
-            border-radius: 24px;
-            padding: 48px 40px;
-            width: 100%;
-            max-width: 400px;
-            box-shadow: 0 25px 60px rgba(0,0,0,0.5), 0 0 0 1px rgba(37,211,102,0.05);
-            animation: cardIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+            background: var(--bg-card); padding: 36px 28px;
+            border-radius: 24px; width: 100%; max-width: 380px;
+            text-align: center; border: 1px solid var(--border);
+            box-shadow: 0 24px 60px rgba(0,0,0,.6);
         }
-        @keyframes cardIn {
-            from { opacity:0; transform: translateY(30px) scale(0.96); }
-            to   { opacity:1; transform: translateY(0) scale(1); }
+        .login-card .login-icon {
+            width: 72px; height: 72px; background: var(--primary-glow);
+            border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            margin: 0 auto 20px;
         }
-        .login-logo {
-            text-align: center;
-            margin-bottom: 32px;
+        .login-card h2 { font-size: 22px; font-weight: 700; margin-bottom: 28px; }
+        .input-group { margin-bottom: 16px; text-align: left; }
+        .input-group label { display: block; margin-bottom: 6px; font-size: 13px; color: var(--text-dim); letter-spacing: .3px; }
+        .input-group input {
+            width: 100%; padding: 14px 16px; background: var(--bg-input);
+            border: 1.5px solid var(--border); border-radius: 12px; color: white;
+            font-size: 16px; outline: none; transition: border-color .25s; font-family: inherit;
+            -webkit-appearance: none;
         }
-        .login-logo i {
-            font-size: 52px;
-            color: var(--primary);
+        .input-group input:focus { border-color: var(--primary); }
+        .btn-primary {
+            width: 100%; padding: 15px 20px; background: var(--primary); color: white;
+            border: none; border-radius: 14px; font-size: 16px; font-weight: 600;
+            cursor: pointer; transition: background .2s, transform .15s; font-family: inherit;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .btn-primary:active { transform: scale(.97); background: var(--primary-dark); }
+        .btn-primary:hover  { background: var(--primary-dark); }
+
+        /* ══════════════════════════════════════════
+           MOBILE HEADER — hidden on desktop
+        ══════════════════════════════════════════ */
+        .mobile-header { display: none; }
+
+        /* ══════════════════════════════════════════
+           SIDEBAR OVERLAY — hidden on desktop
+        ══════════════════════════════════════════ */
+        #sidebarOverlay { display: none; }
+
+        /* ══════════════════════════════════════════
+           SIDEBAR
+        ══════════════════════════════════════════ */
+        .sidebar {
+            width: var(--sidebar-w); flex-shrink: 0;
+            background: var(--bg-sidebar);
+            border-right: 1px solid var(--border);
+            height: 100%; display: flex; flex-direction: column;
+            padding: 24px 16px;
+            transition: transform .28s cubic-bezier(.4,0,.2,1);
+        }
+        .logo-area { display: flex; align-items: center; gap: 10px; margin-bottom: 36px; padding: 0 8px; }
+        .logo-area .logo-text {
+            font-size: 19px; font-weight: 700;
+            background: linear-gradient(45deg,#25D366,#00a884);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+        .nav-items { flex: 1; }
+        .nav-item {
+            display: flex; align-items: center; gap: 14px;
+            padding: 13px 16px; border-radius: 14px; cursor: pointer;
+            transition: all .2s; margin-bottom: 4px;
+            color: var(--text-dim); text-decoration: none; font-size: 15px; font-weight: 500;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .nav-item i { font-size: 18px; width: 22px; text-align: center; }
+        .nav-item:hover, .nav-item:active { background: rgba(255,255,255,.06); color: white; }
+        .nav-item.active { background: var(--primary-glow); color: var(--primary); }
+
+        .sidebar-footer { margin-top: auto; border-top: 1px solid var(--border); padding-top: 16px; }
+        .status-badge {
+            display: inline-flex; align-items: center; gap: 7px;
+            padding: 7px 14px; border-radius: 20px; font-size: 13px; font-weight: 600;
+        }
+        .status-badge.connected    { background: rgba(37,211,102,.12); color: var(--primary); }
+        .status-badge.disconnected { background: rgba(239,68,68,.12);  color: var(--danger);  }
+
+        /* ══════════════════════════════════════════
+           MAIN CONTENT
+        ══════════════════════════════════════════ */
+        .main-content { flex: 1; height: 100%; overflow-y: auto; padding: 32px 28px; -webkit-overflow-scrolling: touch; }
+        .section { display: none; animation: fadeIn .35s ease; }
+        .section.active { display: block; }
+        @keyframes fadeIn { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+
+        h2 { font-size: 28px; margin-bottom: 24px; font-weight: 700; letter-spacing: -.3px; }
+
+        /* ─── Dashboard grid ─── */
+        .grid-dashboard { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px,1fr)); gap: 20px; }
+
+        /* ─── Cards ─── */
+        .card {
+            background: var(--bg-card); border-radius: 20px;
+            padding: 22px; border: 1px solid var(--border);
+        }
+        .qr-card { display: flex; flex-direction: column; align-items: center; text-align: center; }
+        .qr-container {
+            width: 210px; height: 210px; background: white; border-radius: 16px;
+            padding: 8px; margin: 16px 0; display: flex; align-items: center; justify-content: center;
+        }
+        #qrImage { width: 100%; height: 100%; }
+
+        .status-text { font-size: 14px; color: var(--text-dim); }
+
+        /* ─── Contacts ─── */
+        .contacts-actions {
+            display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px;
+        }
+        .action-btn {
+            display: inline-flex; align-items: center; gap: 7px;
+            padding: 10px 14px; border-radius: 12px; border: none;
+            font-size: 13px; font-weight: 600; cursor: pointer;
+            font-family: inherit; transition: all .2s; white-space: nowrap;
+            -webkit-tap-highlight-color: transparent;
+            min-height: 42px;
+        }
+        .action-btn:active { transform: scale(.96); }
+        .action-btn.primary  { background: var(--primary); color: white; }
+        .action-btn.secondary { background: var(--bg-input); color: var(--text-main); }
+        .action-btn.danger   { background: var(--danger);  color: white; }
+
+        .list-container { overflow-y: auto; -webkit-overflow-scrolling: touch; margin: 10px 0; }
+        .item-row {
+            display: flex; align-items: center; gap: 12px;
+            padding: 12px 14px; border-radius: 14px; cursor: pointer;
+            transition: background .15s; margin-bottom: 4px;
+            min-height: 60px; -webkit-tap-highlight-color: transparent;
+        }
+        .item-row:active, .item-row:hover { background: var(--bg-input); }
+        .item-row.selected { background: var(--primary-glow); }
+
+        .avatar-circle {
+            width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 700; font-size: 15px; color: #fff;
+        }
+        .item-info { flex: 1; min-width: 0; }
+        .item-info h4 { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .item-info p  { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
+
+        /* ─── Search ─── */
+        .search-bar {
+            width: 100%; padding: 12px 16px 12px 42px; background: var(--bg-input);
+            border: 1.5px solid var(--border); border-radius: 14px; color: white;
+            font-size: 16px; outline: none; font-family: inherit; transition: border-color .25s;
+            -webkit-appearance: none;
+        }
+        .search-bar:focus { border-color: var(--primary); }
+        .search-wrap { position: relative; margin-bottom: 12px; }
+        .search-wrap .search-icon {
+            position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
+            color: var(--text-dim); font-size: 15px; pointer-events: none;
+        }
+
+        /* ─── Tabs ─── */
+        .tabs { display: flex; gap: 8px; margin-bottom: 18px; background: var(--bg-input); padding: 4px; border-radius: 14px; }
+        .tab-btn {
+            flex: 1; padding: 10px 8px; border: none; background: transparent;
+            color: var(--text-dim); border-radius: 11px; cursor: pointer; font-weight: 600;
+            transition: all .2s; font-family: inherit; font-size: 14px; min-height: 42px;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .tab-btn.active { background: var(--bg-card); color: white; box-shadow: 0 3px 8px rgba(0,0,0,.25); }
+
+        /* ─── Broadcast ─── */
+        .broadcast-form { max-width: 680px; }
+        .step-number {
+            width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 14px; font-weight: 700;
+        }
+        .step-number.active { background: var(--primary); color: white; }
+        .step-number.muted  { background: var(--bg-input); color: var(--text-dim); }
+
+        .textarea-broadcast {
+            width: 100%; min-height: 140px; padding: 14px 16px;
+            background: var(--bg-input); border: 1.5px solid var(--border);
+            border-radius: 14px; color: white; font-family: inherit;
+            font-size: 16px; resize: vertical; outline: none; transition: border-color .25s;
+            -webkit-appearance: none;
+        }
+        .textarea-broadcast:focus { border-color: var(--primary); }
+
+        .media-upload {
+            border: 2px dashed var(--border); padding: 22px 16px; border-radius: 14px;
+            text-align: center; cursor: pointer; transition: all .2s;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .media-upload:hover, .media-upload:active { border-color: var(--primary); background: rgba(37,211,102,.04); }
+
+        .media-preview { display: none; margin-bottom: 14px; position: relative; border-radius: 14px; overflow: hidden; }
+        .media-preview img { width: 100%; max-height: 200px; object-fit: cover; display: block; }
+        .remove-media {
+            position: absolute; top: 8px; right: 8px; background: rgba(0,0,0,.7);
+            color: white; border: none; width: 28px; height: 28px; border-radius: 50%;
+            cursor: pointer; font-size: 13px; display: flex; align-items: center; justify-content: center;
+        }
+
+        .launch-btn {
+            width: 100%; padding: 17px 20px; background: linear-gradient(135deg,#25D366,#00a884);
+            color: white; border: none; border-radius: 16px; font-size: 17px; font-weight: 700;
+            cursor: pointer; font-family: inherit; letter-spacing: .3px;
+            box-shadow: 0 8px 20px rgba(37,211,102,.3);
+            transition: transform .15s, box-shadow .15s;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .launch-btn:active { transform: scale(.97); box-shadow: 0 4px 10px rgba(37,211,102,.2); }
+
+        /* Progress */
+        .progress-container { margin-top: 20px; background: var(--bg-card); border-radius: 16px; padding: 20px; display: none; }
+        .progress-bar-wrap  { height: 10px; background: var(--bg-input); border-radius: 5px; overflow: hidden; margin: 12px 0; }
+        .progress-fill      { height: 100%; background: linear-gradient(90deg,#25D366,#00a884); width: 0%; transition: width .3s; }
+
+        /* ══════════════════════════════════════════
+           INSTALL BUTTON
+        ══════════════════════════════════════════ */
+        .install-btn {
             display: none;
-            margin-bottom: 12px;
-            filter: drop-shadow(0 0 20px rgba(37,211,102,0.4));
+            align-items: center; gap: 7px;
+            background: linear-gradient(135deg,#25D366,#00a884);
+            color: white; border: none; border-radius: 12px;
+            padding: 9px 14px; font-size: 13px; font-weight: 700;
+            cursor: pointer; font-family: inherit;
+            box-shadow: 0 4px 12px rgba(37,211,102,.35);
+            -webkit-tap-highlight-color: transparent;
+            white-space: nowrap; transition: transform .15s, box-shadow .15s;
         }
-        .login-logo h1 {
-            font-size: 22px;
-            font-weight: 700;
-            margin-bottom: 4px;
+        .install-btn:active { transform: scale(.95); }
+        .install-btn.visible { display: inline-flex !important; }
+
+        /* Install banner */
+        .install-banner {
+            display: none; background: linear-gradient(135deg,rgba(37,211,102,.12),rgba(0,168,132,.08));
+            border: 1px solid rgba(37,211,102,.25); border-radius: 16px;
+            padding: 14px 16px; margin-bottom: 18px;
+            align-items: center; gap: 12px; flex-wrap: wrap;
         }
-        .login-logo p {
-            font-size: 13px;
-            color: var(--text-secondary);
+        .install-banner.visible { display: flex !important; }
+        .install-banner .banner-icon {
+            width: 42px; height: 42px; background: var(--primary-glow);
+            border-radius: 12px; display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0;
         }
-        .login-logo-img {
-            width: 72px;
-            height: 72px;
-            border-radius: 18px;
-            object-fit: cover;
-            display: block;
-            margin: 0 auto 14px;
-            box-shadow: 0 8px 32px rgba(37,211,102,0.3);
+        .install-banner .banner-text { flex: 1; min-width: 160px; }
+        .install-banner .banner-text strong { display: block; font-size: 14px; margin-bottom: 2px; }
+        .install-banner .banner-text span { font-size: 12px; color: var(--text-dim); }
+        .install-banner .banner-actions { display: flex; gap: 8px; align-items: center; }
+        .dismiss-btn {
+            background: none; border: none; color: var(--text-dim);
+            font-size: 18px; cursor: pointer; padding: 4px;
+            line-height: 1; -webkit-tap-highlight-color: transparent;
         }
-        .login-field {
-            margin-bottom: 16px;
+
+        /* ══════════════════════════════════════════
+           BOTTOM NAV — hidden on desktop
+        ══════════════════════════════════════════ */
+        .mobile-bottom-nav { display: none; }
+
+        /* ══════════════════════════════════════════
+           MODAL
+        ══════════════════════════════════════════ */
+        .modal-overlay {
+            display: none; position: fixed; inset: 0;
+            background: rgba(0,0,0,.75); z-index: 2000;
+            align-items: flex-end; justify-content: center;
+            transition: opacity .3s;
         }
-        .login-field label {
-            display: block;
-            font-size: 12px;
-            font-weight: 600;
-            color: var(--text-secondary);
-            text-transform: uppercase;
-            letter-spacing: 0.8px;
-            margin-bottom: 8px;
+        .modal-overlay.open { display: flex; }
+        .modal-sheet {
+            width: 100%; max-width: 480px; background: var(--bg-card);
+            border-radius: 24px 24px 0 0; padding: 24px 20px 32px;
+            animation: slideUp .3s ease;
         }
-        .login-field .input-wrap {
-            position: relative;
+        @keyframes slideUp { from{transform:translateY(100%)} to{transform:translateY(0)} }
+        .modal-handle {
+            width: 40px; height: 4px; background: var(--bg-input);
+            border-radius: 2px; margin: 0 auto 20px;
         }
-        .login-field .input-wrap i {
-            position: absolute;
-            left: 14px;
-            top: 50%;
-            transform: translateY(-50%);
-            color: var(--text-secondary);
-            font-size: 14px;
+
+        /* ══════════════════════════════════════════
+           RESPONSIVE — MOBILE ≤ 768px
+        ══════════════════════════════════════════ */
+        @media (max-width: 768px) {
+            body { overflow: hidden; }
+
+            /* ── Mobile header ── */
+            .mobile-header {
+                display: flex !important;
+                position: fixed; top: 0; left: 0; right: 0;
+                height: var(--header-h);
+                background: var(--bg-sidebar);
+                border-bottom: 1px solid var(--border);
+                align-items: center; justify-content: space-between;
+                padding: 0 16px; z-index: 900;
+                box-shadow: 0 1px 8px rgba(0,0,0,.4);
+            }
+            .mobile-header .m-logo { display: flex; align-items: center; gap: 9px; }
+            .mobile-header .m-logo-text {
+                font-size: 17px; font-weight: 700;
+                background: linear-gradient(45deg,#25D366,#00a884);
+                -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            }
+            #hamburgerBtn {
+                background: var(--bg-input); border: none; color: var(--text-main);
+                width: 38px; height: 38px; border-radius: 10px;
+                display: flex; align-items: center; justify-content: center;
+                font-size: 18px; cursor: pointer;
+                -webkit-tap-highlight-color: transparent;
+            }
+
+            /* ── Sidebar becomes full-height drawer ── */
+            .sidebar {
+                position: fixed; top: 0; left: 0; height: 100%;
+                z-index: 999; transform: translateX(-100%);
+                padding-top: calc(var(--header-h) + 16px);
+                box-shadow: 4px 0 24px rgba(0,0,0,.5);
+            }
+            .sidebar.open { transform: translateX(0); }
+            .sidebar .logo-area { display: none; }
+
+            /* ── Overlay backdrop ── */
+            #sidebarOverlay {
+                position: fixed; inset: 0;
+                background: rgba(0,0,0,.65); z-index: 998;
+                backdrop-filter: blur(2px);
+            }
+            #sidebarOverlay.show { display: block !important; }
+
+            /* ── Main content with header + bottom nav offsets ── */
+            .main-content {
+                padding: 16px 14px calc(var(--bottomnav-h) + 12px);
+                margin-top: var(--header-h);
+                height: calc(100% - var(--header-h));
+            }
+
+            /* ── Bottom navigation ── */
+            .mobile-bottom-nav {
+                display: block !important;
+                position: fixed; bottom: 0; left: 0; right: 0;
+                height: var(--bottomnav-h);
+                background: var(--bg-sidebar);
+                border-top: 1px solid var(--border);
+                z-index: 900;
+                padding-bottom: env(safe-area-inset-bottom, 0px);
+                box-shadow: 0 -1px 8px rgba(0,0,0,.4);
+            }
+            .mob-nav-inner { display: flex; height: var(--bottomnav-h); }
+            .mob-btn {
+                flex: 1; display: flex; flex-direction: column; align-items: center;
+                justify-content: center; gap: 5px; background: transparent; border: none;
+                color: var(--text-dim); font-size: 10px; font-weight: 600;
+                text-transform: uppercase; letter-spacing: .5px;
+                font-family: inherit; cursor: pointer; position: relative;
+                -webkit-tap-highlight-color: transparent; transition: color .2s;
+                padding: 0; min-height: var(--bottomnav-h);
+            }
+            .mob-btn i { font-size: 21px; transition: transform .2s; }
+            .mob-btn.active { color: var(--primary); }
+            .mob-btn.active i { transform: scale(1.15); }
+            .mob-btn::after {
+                content: ''; position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+                width: 0; height: 2px; background: var(--primary); border-radius: 0 0 2px 2px;
+                transition: width .2s;
+            }
+            .mob-btn.active::after { width: 32px; }
+            .mob-btn:active { opacity: .7; }
+
+            /* ── Content scaling ── */
+            h2 { font-size: 22px; margin-bottom: 16px; }
+            .grid-dashboard { grid-template-columns: 1fr; gap: 14px; }
+            .card { padding: 16px; border-radius: 16px; }
+            .qr-container { width: 190px; height: 190px; margin: 14px 0; }
+            .list-container { height: calc(100vh - 280px); }
+            .broadcast-form { max-width: 100%; }
+            .tabs { gap: 4px; }
+            .tab-btn { font-size: 13px; padding: 9px 6px; }
+            .contacts-actions { gap: 6px; }
+            .action-btn { font-size: 12px; padding: 9px 11px; }
+
+            /* Modal full-width bottom sheet on mobile */
+            .modal-overlay { align-items: flex-end; }
+            .modal-sheet { border-radius: 24px 24px 0 0; max-width: 100%; padding-bottom: max(32px, env(safe-area-inset-bottom)); }
         }
-        .login-field input {
-            width: 100%;
-            padding: 14px 14px 14px 40px;
-            background: var(--bg-input);
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            color: var(--text-primary);
-            font-size: 14px;
-            font-family: inherit;
-            outline: none;
-            transition: border-color 0.2s, box-shadow 0.2s;
-        }
-        .login-field input:focus {
-            border-color: var(--primary);
-            box-shadow: 0 0 0 3px rgba(37,211,102,0.12);
-        }
-        .login-btn {
-            width: 100%;
-            padding: 15px;
-            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
-            color: white;
-            border: none;
-            border-radius: 10px;
-            font-size: 15px;
-            font-weight: 600;
-            font-family: inherit;
-            cursor: pointer;
-            margin-top: 8px;
-            transition: all 0.2s;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            letter-spacing: 0.3px;
-        }
-        .login-btn:hover { transform: translateY(-1px); box-shadow: 0 8px 25px rgba(37,211,102,0.35); }
-        .login-btn:active { transform: translateY(0); }
-        .login-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
-        .login-error {
-            background: rgba(220,53,69,0.12);
-            border: 1px solid rgba(220,53,69,0.3);
-            color: #ff6b7a;
-            border-radius: 8px;
-            padding: 10px 14px;
-            font-size: 13px;
-            margin-top: 12px;
-            display: none;
-            animation: shake 0.4s ease;
-        }
-        @keyframes shake {
-            0%,100% { transform: translateX(0); }
-            20%,60% { transform: translateX(-6px); }
-            40%,80% { transform: translateX(6px); }
-        }
-        .login-error.show { display: flex; align-items: center; gap: 8px; }
-        .login-divider {
-            text-align: center;
-            font-size: 11px;
-            color: var(--text-secondary);
-            margin-top: 24px;
-            opacity: 0.6;
+
+        @media (max-width: 400px) {
+            .main-content { padding: 12px 10px calc(var(--bottomnav-h) + 10px); }
+            h2 { font-size: 20px; }
+            .card { padding: 14px; }
         }
     </style>
 </head>
 <body>
 
-    <!-- ═══ LOGIN OVERLAY ═══ -->
+    <!-- ─── LOGIN OVERLAY ────────────────────────────────── -->
     <div id="loginOverlay">
         <div class="login-card">
-            <div class="login-logo">
-                <img src="/icons/logo.png" alt="logo" class="login-logo-img">
-                <h1>Watsaap Broadcast</h1>
-                <p>Sign in to manage your broadcasts</p>
+            <div class="login-icon">
+                <i class="fab fa-whatsapp" style="font-size:34px;color:var(--primary);"></i>
             </div>
-            <div class="login-field">
+            <h2>Broadcast Pro</h2>
+            <div class="input-group">
                 <label>Username</label>
-                <div class="input-wrap">
-                    <i class="fas fa-user"></i>
-                    <input type="text" id="loginUser" placeholder="Enter your username" autocomplete="username">
-                </div>
+                <input type="text" id="username" placeholder="Enter username" autocomplete="username" enterkeyhint="next">
             </div>
-            <div class="login-field">
+            <div class="input-group">
                 <label>Password</label>
-                <div class="input-wrap">
-                    <i class="fas fa-lock"></i>
-                    <input type="password" id="loginPass" placeholder="Enter your password" autocomplete="current-password">
-                </div>
+                <input type="password" id="password" placeholder="••••••••" autocomplete="current-password" enterkeyhint="done"
+                    onkeydown="if(event.key==='Enter') handleLogin()">
             </div>
-            <button class="login-btn" id="loginBtn">
-                <i class="fas fa-sign-in-alt"></i> Sign In
+            <button class="btn-primary" onclick="handleLogin()" style="margin-top:8px;">
+                <i class="fas fa-sign-in-alt" style="margin-right:8px;"></i>Sign In
             </button>
-            <div class="login-error" id="loginError">
-                <i class="fas fa-exclamation-circle"></i>
-                <span id="loginErrorMsg">Invalid username or password</span>
-            </div>
-            <div class="login-divider">Watsaap Broadcast &copy; 2025</div>
+            <p id="loginError" style="color:var(--danger);margin-top:14px;font-size:14px;display:none;">
+                <i class="fas fa-exclamation-circle"></i> Invalid credentials
+            </p>
         </div>
     </div>
 
-    <div class="container">
-        <header>
-            <div class="logo">
-                <img src="/icons/logo.png" alt="Watsaap Broadcast Logo">
-                <span class="logo-text">Watsaap Broadcast</span>
+    <!-- ─── MOBILE HEADER ───────────────────────────────── -->
+    <div class="mobile-header" id="mobileHeader">
+        <div class="m-logo">
+            <i class="fab fa-whatsapp" style="color:var(--primary);font-size:26px;"></i>
+            <span class="m-logo-text">Broadcast Pro</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+            <button id="installBtnHeader" class="install-btn" onclick="triggerInstall()" title="Install App">
+                <i class="fas fa-download"></i> Install
+            </button>
+            <button id="hamburgerBtn" onclick="toggleSidebar()" aria-label="Menu">
+                <i class="fas fa-bars" id="hamburgerIcon"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- ─── SIDEBAR OVERLAY ─────────────────────────────── -->
+    <div id="sidebarOverlay" onclick="closeSidebar()"></div>
+
+    <!-- ─── SIDEBAR ─────────────────────────────────────── -->
+    <nav class="sidebar" id="sidebar">
+        <div class="logo-area">
+            <i class="fab fa-whatsapp" style="color:var(--primary);font-size:28px;"></i>
+            <span class="logo-text">Broadcast Pro</span>
+        </div>
+        <div class="nav-items">
+            <a href="#" class="nav-item active" onclick="showSection('dashboard',this)">
+                <i class="fas fa-th-large"></i> Dashboard
+            </a>
+            <a href="#" class="nav-item" onclick="showSection('contacts',this)">
+                <i class="fas fa-address-book"></i> Contacts
+            </a>
+            <a href="#" class="nav-item" onclick="showSection('groups',this)">
+                <i class="fas fa-users"></i> Groups
+            </a>
+            <a href="#" class="nav-item" onclick="showSection('broadcast',this)">
+                <i class="fas fa-paper-plane"></i> New Broadcast
+            </a>
+        </div>
+        <div class="sidebar-footer">
+            <div class="status-badge disconnected" id="statusBadge">
+                <i class="fas fa-circle" style="font-size:8px;"></i> Offline
             </div>
-            <div class="connection-status">
-                <div class="status-dot" id="statusDot"></div>
-                <span id="statusText" style="font-size:12px;">Disconnected</span>
-                <button class="btn btn-secondary" id="logoutBtn" style="display:none; padding:6px 10px; font-size:12px; min-height:34px; border-radius:8px;">
-                    <i class="fas fa-sign-out-alt"></i>
+            <div style="margin-top:12px;display:flex;flex-direction:column;gap:8px;">
+                <button id="installBtnSidebar" class="install-btn" onclick="triggerInstall()" style="width:100%;justify-content:center;">
+                    <i class="fas fa-download"></i> Install App
+                </button>
+                <button class="btn-primary" style="background:var(--bg-input);font-size:14px;padding:12px;" onclick="handleLogout()">
+                    <i class="fas fa-sign-out-alt"></i> Logout
                 </button>
             </div>
-        </header>
-
-        <!-- Bottom Navigation (replaces page-tabs) -->
-        <nav class="bottom-nav">
-            <button class="bottom-nav-item active" id="navBroadcast" onclick="switchPage('broadcast', this)">
-                <i class="fas fa-paper-plane"></i>
-                <span>Broadcast</span>
-            </button>
-            <button class="bottom-nav-item" id="navLists" onclick="switchPage('lists', this)">
-                <i class="fas fa-layer-group"></i>
-                <span>Lists</span>
-            </button>
-            <button class="bottom-nav-item" id="navConnect" onclick="switchPage('connect', this)">
-                <i class="fas fa-qrcode"></i>
-                <span>Connect</span>
-            </button>
-        </nav>
-
-        <!-- Hidden page-tabs still work for JS compat -->
-        <div class="page-tabs" style="display:none;">
-            <button class="page-tab active" data-page="broadcast" id="tabBroadcast"><i class="fas fa-paper-plane"></i> Broadcast</button>
-            <button class="page-tab" data-page="lists" id="tabLists"><i class="fas fa-list-alt"></i> Broadcast Lists</button>
         </div>
+    </nav>
 
-        <div class="page-panel active" id="pageBroadcast">
-        <div class="main-content">
-            <!-- Sidebar hidden on mobile; visible only on desktop -->
-            <div class="sidebar" id="broadcastSidebar" style="display:none;">
-                <div class="card">
-                    <div class="card-title">
-                        <i class="fas fa-qrcode"></i>
-                        Connect WhatsApp
-                    </div>
-                    <div class="qr-section">
-                        <div id="qrCode">
-                            <img id="qrImage" src="" alt="QR Code">
-                        </div>
-                        <div id="connectedInfo" style="display:none;">
-                            <i class="fas fa-check-circle" style="font-size:48px; color:var(--success); margin-bottom:16px;"></i>
-                            <p style="margin-bottom:16px;">WhatsApp Connected!</p>
-                            <p class="contact-count" id="contactCount"></p>
-                        </div>
-                        <div id="qrInstructions">
-                            <p class="qr-instructions">
-                                1. Open WhatsApp on your phone<br>
-                                2. Go to Settings → Linked Devices<br>
-                                3. Tap "Link a Device"<br>
-                                4. Scan the QR code
-                            </p>
-                        </div>
-                    </div>
+    <!-- ─── MAIN CONTENT ────────────────────────────────── -->
+    <main class="main-content">
+
+        <!-- DASHBOARD -->
+        <section id="dashboard" class="section active">
+            <h2>Dashboard</h2>
+
+            <!-- PWA Install Banner -->
+            <div class="install-banner" id="installBanner">
+                <div class="banner-icon">
+                    <i class="fab fa-whatsapp" style="font-size:22px;color:var(--primary);"></i>
                 </div>
-
-                <!-- Quick actions moved to main panel -->
+                <div class="banner-text">
+                    <strong>Install Broadcast Pro</strong>
+                    <span>Add to Home Screen for quick access</span>
+                </div>
+                <div class="banner-actions">
+                    <button class="install-btn visible" onclick="triggerInstall()" style="padding:9px 16px;">
+                        <i class="fas fa-download"></i> Install
+                    </button>
+                    <button class="dismiss-btn" onclick="dismissBanner()" title="Dismiss">×</button>
+                </div>
             </div>
 
-            <div class="content">
-                <div class="card">
-                    <div class="card-title">
-                        <i class="fas fa-paper-plane"></i>
-                        Send Broadcast Message
-                    </div>
+            <div class="grid-dashboard">
 
-                    <div class="recipients-section">
-                        <label style="display:block; margin-bottom:10px; font-size:14px;">Recipients</label>
-                        <div class="recipient-tabs">
-                            <div class="recipient-tab active" data-tab="contacts">From WhatsApp</div>
-                            <div class="recipient-tab" data-tab="customGroups">Custom Groups</div>
-                            <div class="recipient-tab" data-tab="quickActions">Quick Actions</div>
-                        </div>
-
-                        <div class="tab-content active" id="contactsTab">
-                            <div style="margin-bottom:10px;">
-                                <input type="text" id="contactSearch" placeholder="🔍  Search contacts...">
+                <!-- QR / Connection Card -->
+                <div class="card qr-card">
+                    <h3 style="font-size:16px;font-weight:600;color:var(--text-dim);">WhatsApp Connection</h3>
+                    <div class="qr-container" id="qrContainer">
+                        <img id="qrImage" src="" alt="Scan QR Code">
+                        <div id="qrPlaceholder" style="display:none;text-align:center;">
+                            <div style="width:60px;height:60px;background:var(--primary-glow);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 12px;">
+                                <i class="fas fa-check" style="font-size:26px;color:var(--primary);"></i>
                             </div>
-                            <div class="contact-list-container" id="contactList">
-                                <div style="text-align:center; padding:30px; color:var(--text-secondary);">
-                                    <i class="fas fa-user-friends" style="font-size:32px; margin-bottom:10px;"></i>
-                                    <p>Connect WhatsApp to see your contacts</p>
-                                </div>
-                            </div>
-                            <div class="selected-count" id="selectedCount">
-                                <span>0</span> contacts selected (max 100)
-                            </div>
-                        </div>
-
-                        <div class="tab-content" id="customGroupsTab">
-                            <div class="search-container" style="margin-bottom:10px;">
-                                <input type="text" id="groupSearch" placeholder="Search custom groups..." style="width:100%; padding:10px; border-radius:8px; border:1px solid #ddd;">
-                            </div>
-                            <div class="contact-list-container" id="customGroupsList">
-                                <div style="text-align:center; padding:30px; color:var(--text-secondary);">
-                                    <i class="fas fa-users-cog" style="font-size:32px; margin-bottom:10px;"></i>
-                                    <p>Connect WhatsApp and create groups here</p>
-                                </div>
-                            </div>
-                            <div class="selected-count" id="groupCount">
-                                <span>0</span> custom groups selected
-                            </div>
-                        </div>
-
-                        <div class="tab-content" id="quickActionsTab">
-                            <div style="text-align:center; padding:20px; color:var(--text-secondary); font-size:14px; margin-bottom: 10px;">
-                                Manage your contacts and groups here
-                            </div>
-                            <button class="btn btn-secondary" style="width:100%; margin-bottom:10px;" id="importContactsBtn" disabled>
-                                <i class="fas fa-download"></i> Import from WhatsApp
-                            </button>
-                            <button class="btn btn-secondary" style="width:100%; margin-bottom:10px;" id="createGroupBtn" disabled>
-                                <i class="fas fa-plus-circle"></i> Create Custom Group
-                            </button>
-                            <button class="btn btn-secondary" style="width:100%;" id="addNumbersBtn" disabled>
-                                <i class="fas fa-plus"></i> Add Phone Numbers
-                            </button>
+                            <p style="color:var(--primary);font-weight:600;">Connected</p>
                         </div>
                     </div>
-
-                    <div class="form-group">
-                        <label>Message</label>
-                        <textarea id="messageText" placeholder="Type your message here..."></textarea>
-                        <p class="help-text"><span id="charCount">0</span> characters</p>
-                    </div>
-
-
-                    <!-- Media attach button + preview -->
-                    <div id="mediaSection" style="margin-bottom:16px;">
-                        <button type="button" class="btn btn-secondary" id="attachMediaBtn" style="width:100%; border:1.5px dashed var(--border); display:flex; align-items:center; gap:10px; justify-content:center; padding:14px; font-size:14px; border-radius:10px; transition:all 0.2s;" onmouseover="this.style.borderColor='var(--primary)'" onmouseout="this.style.borderColor='var(--border)'">
-                            <i class="fas fa-photo-video" style="color:var(--accent); font-size:18px;"></i>
-                            <span>Send Image / Video</span>
-                            <span style="font-size:11px; color:var(--text-secondary); margin-left:4px;">(optional)</span>
+                    <p class="status-text" id="statusText">Scan to link your device</p>
+                    <div style="display:flex;gap:10px;justify-content:center;margin-top:14px;flex-wrap:wrap;">
+                        <button id="refreshQRBtn" class="action-btn secondary" onclick="fetchQR()">
+                            <i class="fas fa-sync"></i> Refresh QR
                         </button>
-                        <input type="file" id="mediaInput" accept="image/*,video/*" style="display:none;">
-                        <div id="mediaPreviewCard" style="display:none; margin-top:10px; background:var(--bg-input); border-radius:10px; padding:14px; display:none; align-items:center; gap:12px;">
-                            <div id="mediaThumb" style="width:44px; height:44px; border-radius:8px; background:var(--border); display:flex; align-items:center; justify-content:center; flex-shrink:0;"></div>
-                            <div style="flex:1; min-width:0;">
-                                <div id="mediaFileName" style="font-size:13px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;"></div>
-                                <div id="mediaFileSize" style="font-size:11px; color:var(--text-secondary); margin-top:2px;"></div>
-                            </div>
-                            <button id="removeMediaBtn" style="background:rgba(220,53,69,0.12); color:var(--danger); border:none; width:30px; height:30px; border-radius:6px; cursor:pointer; font-size:14px; flex-shrink:0; transition:background 0.2s;" title="Remove media" onmouseover="this.style.background='var(--danger)'; this.style.color='#fff'" onmouseout="this.style.background='rgba(220,53,69,0.12)'; this.style.color='var(--danger)'">
-                                <i class="fas fa-times"></i>
-                            </button>
-                        </div>
-                    </div>
-
-                    <button class="btn btn-primary send-btn" id="sendBtn" disabled>
-                        <i class="fas fa-paper-plane"></i>
-                        Send to <span id="sendCount">0</span> Recipients
-                    </button>
-
-                    <div class="progress-section" id="progressSection">
-                        <div class="progress-bar-container">
-                            <div id="safeModeNotice" style="background:rgba(37,211,102,0.1); padding:10px 15px; border-radius:8px; margin-bottom:15px; font-size:13px; color:var(--primary);">
-                                <i class="fas fa-shield-alt"></i> Safe Mode Active - Sending slowly to avoid blocks
-                            </div>
-                            <div class="progress-bar">
-                                <div class="progress-fill" id="progressFill"></div>
-                            </div>
-                            <div class="progress-text">
-                                <span class="progress-current" id="progressCurrent">0 / 0</span>
-                                <span id="progressStatus">
-                                    <span id="progressRecipient">-</span>
-                                    <span id="statusBadge" style="display:none; margin-left:8px; padding:2px 8px; border-radius:4px; font-size:11px;"></span>
-                                </span>
-                            </div>
-                            <div id="nextMessageTime" style="text-align:center; margin-top:10px; font-size:12px; color:var(--text-secondary);"></div>
-                        </div>
-                    </div>
-
-                    <div class="results-section" id="resultsSection">
-                        <div class="results-summary">
-                            <div class="result-stat total">
-                                <i class="fas fa-users"></i>
-                                <div class="count" id="resultTotal">0</div>
-                                <div class="label">Total</div>
-                            </div>
-                            <div class="result-stat success">
-                                <i class="fas fa-check-circle"></i>
-                                <div class="count" id="resultSuccess">0</div>
-                                <div class="label">Sent</div>
-                            </div>
-                            <div class="result-stat failed">
-                                <i class="fas fa-times-circle"></i>
-                                <div class="count" id="resultFailed">0</div>
-                                <div class="label">Failed</div>
-                            </div>
-                        </div>
-                        <button class="btn btn-secondary" style="width:100%;" id="resetBtn">
-                            <i class="fas fa-redo"></i> Send Another Broadcast
+                        <button class="action-btn danger" onclick="resetWhatsApp(event)">
+                            <i class="fas fa-trash-alt"></i> Reset
                         </button>
                     </div>
                 </div>
-            </div>
-        </div>
-        </div><!-- end main-content -->
-        </div><!-- end pageBroadcast -->
 
-        <!-- ═══ BROADCAST LISTS PAGE ═══ -->
-        <div class="page-panel" id="pageLists">
+                <!-- Stats Card -->
+                <div class="card">
+                    <h3 style="font-size:16px;font-weight:600;margin-bottom:16px;">Stats</h3>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                        <div style="background:var(--bg-input);border-radius:14px;padding:18px 12px;text-align:center;">
+                            <i class="fas fa-address-book" style="font-size:24px;color:var(--primary);margin-bottom:10px;display:block;"></i>
+                            <div id="statContacts" style="font-size:28px;font-weight:700;">0</div>
+                            <div style="font-size:10px;color:var(--text-dim);margin-top:4px;text-transform:uppercase;letter-spacing:.6px;">Contacts</div>
+                        </div>
+                        <div style="background:var(--bg-input);border-radius:14px;padding:18px 12px;text-align:center;">
+                            <i class="fas fa-users" style="font-size:24px;color:var(--accent-blue);margin-bottom:10px;display:block;"></i>
+                            <div id="statGroups" style="font-size:28px;font-weight:700;">0</div>
+                            <div style="font-size:10px;color:var(--text-dim);margin-top:4px;text-transform:uppercase;letter-spacing:.6px;">Groups</div>
+                        </div>
+                    </div>
+                    <div id="lastSyncedLabel" style="font-size:11px;color:var(--text-dim);margin-top:14px;text-align:center;display:none;">
+                        <i class="fas fa-clock" style="margin-right:5px;color:var(--accent-blue);"></i>
+                        Last synced: <span id="lastSyncedTime">—</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- CONTACTS -->
+        <section id="contacts" class="section">
+            <h2>Contacts</h2>
             <div class="card">
-                <div class="card-title">
-                    <i class="fas fa-list-alt" style="color:var(--accent);"></i>
-                    Broadcast List Manager
-                </div>
-                <div class="bl-stats-row" id="blStatsRow">
-                    <div class="bl-stat"><div class="bl-stat-num" id="blStatTotal">0</div><div class="bl-stat-label">Total Lists</div></div>
-                    <div class="bl-stat"><div class="bl-stat-num" id="blStatMembers">0</div><div class="bl-stat-label">Total Members</div></div>
-                    <div class="bl-stat"><div class="bl-stat-num" id="blStatActive">0</div><div class="bl-stat-label">Lists Selected</div></div>
-                </div>
-                <div class="bl-toolbar">
-                    <input class="bl-search" id="blSearch" placeholder="&#xf002;  Search broadcast lists..." type="text">
-                    <button class="btn btn-primary" id="blCreateBtn">
-                        <i class="fas fa-plus"></i> New List
+                <div class="contacts-actions">
+                    <button class="action-btn primary" onclick="importWhatsAppContacts()">
+                        <i class="fas fa-sync"></i> Sync
+                    </button>
+                    <button class="action-btn secondary" onclick="deepSyncContacts()" id="deepSyncBtn">
+                        <i class="fas fa-search-plus"></i> Deep Sync
+                    </button>
+                    <button class="action-btn secondary" onclick="openAddContactModal()">
+                        <i class="fas fa-user-plus"></i> Add
+                    </button>
+                    <button class="action-btn secondary" id="saveGroupBtn" onclick="saveAsCustomGroup()">
+                        <i class="fas fa-layer-group"></i> <span>Save Group</span>
+                    </button>
+                    <button class="action-btn danger" style="display:none;" id="cancelGroupEditBtn" onclick="cancelGroupEdit()">
+                        <i class="fas fa-times"></i> Cancel
                     </button>
                 </div>
-                <div class="bl-grid" id="blGrid">
-                    <div class="bl-empty">
-                        <i class="fas fa-broadcast-tower"></i>
-                        <p style="font-size:15px; font-weight:600; margin-bottom:8px;">No broadcast lists yet</p>
-                        <p style="font-size:13px;">Create a list to send messages to a fixed group of contacts easily</p>
-                    </div>
+                <div class="search-wrap">
+                    <i class="fas fa-search search-icon"></i>
+                    <input type="search" class="search-bar" placeholder="Search contacts…" onkeyup="filterList('contactSearch','contactsListItems')">
                 </div>
+                <div class="list-container" id="contactsListItems"></div>
             </div>
-        </div><!-- end pageLists -->
+        </section>
 
-        <!-- ═══ CONNECT PAGE (mobile bottom nav) ═══ -->
-        <div class="page-panel" id="pageConnect">
+        <!-- GROUPS -->
+        <section id="groups" class="section">
+            <h2>Groups</h2>
+            <div class="tabs">
+                <button class="tab-btn active" onclick="switchGroupTab('wa',this)">
+                    <i class="fab fa-whatsapp" style="margin-right:5px;"></i>WhatsApp
+                </button>
+                <button class="tab-btn" onclick="switchGroupTab('custom',this)">
+                    <i class="fas fa-list" style="margin-right:5px;"></i>Custom Lists
+                </button>
+            </div>
             <div class="card">
-                <div class="card-title">
-                    <i class="fas fa-qrcode"></i>
-                    Connect WhatsApp
-                </div>
-                <div class="qr-section">
-                    <div id="qrCodeConnect">
-                        <img id="qrImageConnect" src="" alt="QR Code" style="max-width:200px; border-radius:12px; border:3px solid var(--border); display:none;">
+                <div id="waGroupsList" class="list-container"></div>
+                <div id="customGroupsList" class="list-container" style="display:none;"></div>
+            </div>
+        </section>
+
+        <!-- BROADCAST -->
+        <section id="broadcast" class="section">
+            <h2>New Broadcast</h2>
+            <div class="broadcast-form">
+
+                <!-- Step 1 — Recipients -->
+                <div class="card" style="margin-bottom:14px;">
+                    <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
+                        <div class="step-number active">1</div>
+                        <h3 style="font-size:16px;font-weight:700;margin:0;">Select Recipients</h3>
                     </div>
-                    <div id="connectedInfoConnect" style="display:none; padding:12px; background:rgba(37,211,102,0.07); border-radius:10px; border:1px solid rgba(37,211,102,0.2); text-align:center;">
-                        <i class="fas fa-check-circle" style="font-size:48px; color:var(--success); margin-bottom:12px; display:block;"></i>
-                        <div style="font-size:16px; font-weight:700;" id="connectedNameConnect">Connected</div>
-                        <div style="font-size:13px; color:var(--text-secondary); margin-top:4px;" id="connectedNumberConnect"></div>
-                    </div>
-                    <div id="qrInstructionsConnect" style="margin-top:16px;">
-                        <p class="qr-instructions">
-                            1. Open WhatsApp on your phone<br>
-                            2. Go to Settings → Linked Devices<br>
-                            3. Tap "Link a Device"<br>
-                            4. Scan the QR code
+                    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+                        <p style="font-size:14px;color:var(--text-dim);">
+                            <i class="fas fa-users" style="color:var(--primary);margin-right:6px;"></i>
+                            Selected: <strong id="broadcastSelectionText" style="color:var(--text-main);">None</strong>
                         </p>
+                        <button class="action-btn secondary"
+                            onclick="showSection('groups',document.querySelector('.nav-item[onclick*=\'groups\']'))">
+                            <i class="fas fa-layer-group"></i> Pick from Groups
+                        </button>
                     </div>
                 </div>
-            </div>
-            <div class="card" style="margin-top:12px;">
-                <div class="card-title"><i class="fas fa-users"></i> Quick Actions</div>
-                <div class="quick-actions">
-                    <button class="btn btn-secondary" id="importContactsBtnC" disabled><i class="fas fa-download"></i> Import from WhatsApp</button>
-                    <button class="btn btn-secondary" id="createGroupBtnC" disabled><i class="fas fa-plus-circle"></i> Create Custom Group</button>
-                    <button class="btn btn-secondary" id="addNumbersBtnC" disabled><i class="fas fa-plus"></i> Add Phone Numbers</button>
+
+                <!-- Step 2 — Compose -->
+                <div class="card" style="margin-bottom:14px;">
+                    <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
+                        <div class="step-number active">2</div>
+                        <h3 style="font-size:16px;font-weight:700;margin:0;">Compose Message</h3>
+                    </div>
+                    <textarea class="textarea-broadcast" id="messageText" placeholder="Type your broadcast message here…"></textarea>
+                </div>
+
+                <!-- Step 3 — Media -->
+                <div class="card" style="margin-bottom:14px;">
+                    <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
+                        <div class="step-number muted">3</div>
+                        <h3 style="font-size:15px;font-weight:600;margin:0;color:var(--text-dim);">
+                            Attach Media <span style="font-size:12px;font-weight:400;">(optional)</span>
+                        </h3>
+                    </div>
+                    <div class="media-upload" onclick="document.getElementById('mediaInput').click()">
+                        <i class="fas fa-cloud-upload-alt" style="font-size:28px;color:var(--text-dim);margin-bottom:8px;display:block;"></i>
+                        <p style="font-size:13px;color:var(--text-dim);">Tap to upload image, video or document</p>
+                        <input type="file" id="mediaInput" style="display:none;" onchange="handleMediaPreview(this)">
+                    </div>
+                    <div class="media-preview" id="mediaPreview">
+                        <img src="" id="previewImg">
+                        <button class="remove-media" onclick="clearMedia()"><i class="fas fa-times"></i></button>
+                    </div>
+                </div>
+
+                <!-- Launch -->
+                <button class="launch-btn" id="broadcastBtn" onclick="startBroadcast()">
+                    <i class="fas fa-paper-plane" style="margin-right:8px;"></i>Launch Broadcast
+                </button>
+
+                <div class="progress-container" id="broadcastProgress">
+                    <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+                        <span id="progressLabel" style="font-size:14px;">Sending messages…</span>
+                        <span id="progressPercent" style="font-size:14px;font-weight:600;color:var(--primary);">0%</span>
+                    </div>
+                    <div class="progress-bar-wrap">
+                        <div class="progress-fill" id="progressFill"></div>
+                    </div>
+                    <p style="font-size:12px;color:var(--text-dim);" id="progressSubtext">0 of 0 messages sent</p>
                 </div>
             </div>
-        </div><!-- end pageConnect -->
+        </section>
 
+    </main>
 
-    <div class="modal" id="addNumbersModal">
-        <div class="modal-content">
-            <h3>Add Phone Numbers</h3>
-            <p>Enter phone numbers to send messages. One number per line.</p>
-            <textarea id="addNumbersText" placeholder="923001234567
-923121234567
-923451234567" style="width:100%; height:150px; padding:12px; background:var(--bg-input); border:1px solid var(--border); border-radius:8px; color:var(--text-primary); margin-bottom:16px;"></textarea>
-            <div class="btn-group">
-                <button class="btn btn-secondary" id="cancelAddNumbers">Cancel</button>
-                <button class="btn btn-primary" id="confirmAddNumbers">Add Numbers</button>
+    <!-- ─── ADD CONTACT MODAL ────────────────────────────── -->
+    <div id="addContactModal" class="modal-overlay" onclick="if(event.target===this)closeAddContactModal()">
+        <div class="modal-sheet">
+            <div class="modal-handle"></div>
+            <h3 style="margin-bottom:20px;font-size:18px;">Add New Contact</h3>
+            <div class="input-group">
+                <label>Display Name</label>
+                <input type="text" id="newContactName" placeholder="e.g. Rahul Sharma" enterkeyhint="next">
+            </div>
+            <div class="input-group" style="margin-top:12px;">
+                <label>Phone Number (with Country Code)</label>
+                <input type="tel" id="newContactPhone" placeholder="e.g. 919876543210" enterkeyhint="done">
+                <small style="color:var(--text-dim);font-size:11px;display:block;margin-top:5px;">
+                    <i class="fas fa-info-circle"></i> Do not include + or spaces
+                </small>
+            </div>
+            <div style="display:flex;gap:10px;margin-top:20px;">
+                <button class="btn-primary" onclick="submitNewContact()" id="submitContactBtn" style="flex:1;">
+                    <i class="fas fa-check"></i> Create
+                </button>
+                <button class="btn-primary" onclick="closeAddContactModal()" style="flex:1;background:var(--bg-input);">
+                    Cancel
+                </button>
             </div>
         </div>
-    </div>
-
-    <!-- Broadcast List Modal -->
-    <div class="modal" id="blModal">
-        <div class="bl-modal-content">
-            <div class="bl-modal-header">
-                <h3 id="blModalTitle"><i class="fas fa-broadcast-tower" style="color:var(--accent);"></i> New Broadcast List</h3>
-                <button class="bl-close" id="blModalClose">&times;</button>
-            </div>
-            <div class="form-group">
-                <label>List Name *</label>
-                <input type="text" id="blNameInput" placeholder="e.g. VIP Customers, Team Alpha...">
-            </div>
-            <div class="form-group">
-                <label>Description (optional)</label>
-                <input type="text" id="blDescInput" placeholder="Brief description of this list...">
-            </div>
-            <div class="form-group">
-                <label>Search &amp; Select Members</label>
-                <input type="text" id="blMemberSearch" placeholder="Search contacts..." style="width:100%; padding:10px; background:var(--bg-input); border:1px solid var(--border); border-radius:8px; color:var(--text-primary); font-family:inherit; outline:none; margin-bottom:8px;">
-                <div id="blSelectedInfo" style="font-size:12px; color:var(--primary); font-weight:600; margin-bottom:6px;">0 members selected</div>
-                <div class="bl-member-list" id="blMemberList"></div>
-            </div>
-            <button class="btn btn-primary" style="width:100%; margin-top:8px;" id="blSaveBtn">
-                <i class="fas fa-save"></i> Save Broadcast List
-            </button>
-        </div>
-    </div>
-
-    <!-- Broadcast List Send Modal -->
-    <div class="modal" id="blSendModal">
-        <div class="modal-content" style="max-width:460px; text-align:left;">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
-                <h3 style="margin:0;" id="blSendTitle"><i class="fas fa-paper-plane" style="color:var(--primary);"></i> Send to List</h3>
-                <button class="bl-close" id="blSendClose">&times;</button>
-            </div>
-            <div class="form-group">
-                <label>Message *</label>
-                <textarea id="blSendMsg" style="min-height:100px;" placeholder="Type your message..."></textarea>
-            </div>
-            <div style="font-size:13px; color:var(--text-secondary); margin-bottom:16px;" id="blSendInfo"></div>
-            <div style="display:flex; gap:10px;">
-                <button class="btn btn-secondary" id="blSendCancelBtn" style="flex:1;">Cancel</button>
-                <button class="btn btn-primary" id="blSendConfirmBtn" style="flex:1;"><i class="fas fa-paper-plane"></i> Send</button>
-            </div>
-        </div>
-    </div>
-
-    <div class="toast" id="toast">
-        <i class="fas fa-check-circle"></i>
-        <span id="toastMessage"></span>
-    </div>
-
-    <!-- PWA Install Banner -->
-    <div id="pwaInstallBanner" style="
-        position: fixed;
-        bottom: 0; left: 0; right: 0;
-        z-index: 10000;
-        background: linear-gradient(135deg, #1f2c34, #182027);
-        border-top: 1px solid rgba(37,211,102,0.3);
-        padding: 16px 20px;
-        display: flex;
-        align-items: center;
-        gap: 14px;
-        transform: translateY(120%);
-        transition: transform 0.4s cubic-bezier(0.34,1.56,0.64,1);
-        box-shadow: 0 -8px 30px rgba(0,0,0,0.4);
-    ">
-        <img src="/icons/icon-192.png" style="width:44px; height:44px; border-radius:10px; flex-shrink:0;" alt="App Icon">
-        <div style="flex:1; min-width:0;">
-            <div style="font-size:14px; font-weight:700; color:#fff;">Install App</div>
-            <div style="font-size:12px; color:rgba(255,255,255,0.6);">Add to home screen for quick access</div>
-        </div>
-        <button onclick="installPWA()" style="
-            background: #25D366; color: white; border: none;
-            padding: 10px 18px; border-radius: 8px;
-            font-size: 13px; font-weight: 600; cursor: pointer;
-            white-space: nowrap; flex-shrink:0;
-        ">Install</button>
-        <button onclick="dismissInstallBanner()" style="
-            background: transparent; color: rgba(255,255,255,0.5);
-            border: none; font-size: 18px; cursor: pointer;
-            padding: 4px 8px; flex-shrink:0;
-        ">&times;</button>
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
+    <script src="/app.js"></script>
+
+    <!-- ─── MOBILE BOTTOM NAV ─────────────────────────────── -->
+    <nav class="mobile-bottom-nav" id="mobileBottomNav">
+        <div class="mob-nav-inner">
+            <button class="mob-btn active" id="mnav-dashboard" onclick="mobileNav('dashboard',this)">
+                <i class="fas fa-th-large"></i>
+                <span>Home</span>
+            </button>
+            <button class="mob-btn" id="mnav-contacts" onclick="mobileNav('contacts',this)">
+                <i class="fas fa-address-book"></i>
+                <span>Contacts</span>
+            </button>
+            <button class="mob-btn" id="mnav-groups" onclick="mobileNav('groups',this)">
+                <i class="fas fa-users"></i>
+                <span>Groups</span>
+            </button>
+            <button class="mob-btn" id="mnav-broadcast" onclick="mobileNav('broadcast',this)">
+                <i class="fas fa-paper-plane"></i>
+                <span>Broadcast</span>
+            </button>
+        </div>
+    </nav>
+
     <script>
-        // ── SERVICE WORKER REGISTRATION ──────────────────────────────────
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/sw.js')
-                    .then(reg => console.log('[PWA] Service worker registered:', reg.scope))
-                    .catch(err => console.warn('[PWA] SW registration failed:', err));
-            });
+        /* ─── HAMBURGER SIDEBAR ─── */
+        function toggleSidebar() {
+            const sidebar  = document.getElementById('sidebar');
+            const overlay  = document.getElementById('sidebarOverlay');
+            const icon     = document.getElementById('hamburgerIcon');
+            if (sidebar.classList.contains('open')) { closeSidebar(); return; }
+            sidebar.classList.add('open');
+            overlay.classList.add('show');
+            icon.className = 'fas fa-times';
+        }
+        function closeSidebar() {
+            document.getElementById('sidebar').classList.remove('open');
+            document.getElementById('sidebarOverlay').classList.remove('show');
+            const i = document.getElementById('hamburgerIcon');
+            if (i) i.className = 'fas fa-bars';
         }
 
-        // ── PWA INSTALL BANNER ────────────────────────────────────────
+        /* ─── MOBILE BOTTOM NAV ─── */
+        function mobileNav(sectionId, el) {
+            // Update sidebar active
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            const link = document.querySelector(`.nav-item[onclick*="${sectionId}"]`);
+            if (link) link.classList.add('active');
+
+            // Switch section
+            document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+            const t = document.getElementById(sectionId);
+            if (t) t.classList.add('active');
+
+            // Update bottom nav
+            document.querySelectorAll('.mob-btn').forEach(b => b.classList.remove('active'));
+            el.classList.add('active');
+
+            // Close sidebar
+            closeSidebar();
+
+            // Trigger data load
+            if (sectionId === 'contacts' && typeof renderContacts === 'function') renderContacts();
+            if (sectionId === 'groups'   && typeof refreshGroups  === 'function') refreshGroups();
+        }
+
+        /* ─── SYNC SIDEBAR CLICKS → BOTTOM NAV ─── */
+        document.addEventListener('DOMContentLoaded', () => {
+            const orig = window.showSection;
+            if (typeof orig === 'function') {
+                window.showSection = function(id, el) {
+                    orig(id, el);
+                    document.querySelectorAll('.mob-btn').forEach(b => b.classList.remove('active'));
+                    const btn = document.getElementById('mnav-' + id);
+                    if (btn) btn.classList.add('active');
+                    closeSidebar();
+                };
+            }
+        });
+
+        /* ─── PWA INSTALL LOGIC ─── */
         let deferredPrompt = null;
+
         window.addEventListener('beforeinstallprompt', (e) => {
             e.preventDefault();
             deferredPrompt = e;
-            // Show the install banner after 3 seconds
-            setTimeout(showInstallBanner, 3000);
+
+            // Only show if not already dismissed
+            if (!localStorage.getItem('installDismissed')) {
+                document.getElementById('installBanner').classList.add('visible');
+            }
+
+            // Show install buttons
+            document.querySelectorAll('.install-btn').forEach(b => {
+                if (b.id !== 'installBtnBanner') b.classList.add('visible');
+            });
         });
 
-        function showInstallBanner() {
-            if (!deferredPrompt) return;
-            const banner = document.getElementById('pwaInstallBanner');
-            if (banner) banner.style.transform = 'translateY(0)';
-        }
-
-        function installPWA() {
-            if (!deferredPrompt) return;
-            deferredPrompt.prompt();
-            deferredPrompt.userChoice.then((result) => {
-                if (result.outcome === 'accepted') {
-                    console.log('[PWA] User accepted install');
-                }
-                deferredPrompt = null;
-                const banner = document.getElementById('pwaInstallBanner');
-                if (banner) banner.style.transform = 'translateY(120%)';
-            });
-        }
-
-        function dismissInstallBanner() {
+        window.addEventListener('appinstalled', () => {
             deferredPrompt = null;
-            const banner = document.getElementById('pwaInstallBanner');
-            if (banner) banner.style.transform = 'translateY(120%)';
+            hideAllInstallUI();
+            console.log('[PWA] App installed successfully');
+        });
+
+        // Check if already installed (standalone mode)
+        if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone) {
+            hideAllInstallUI();
         }
 
-        // ── AUTH GATE ──────────────────────────────────────────────
-        let API_KEY = sessionStorage.getItem('wa_api_key');
-
-        function showApp() {
-            document.getElementById('loginOverlay').style.display = 'none';
+        function hideAllInstallUI() {
+            document.getElementById('installBanner').classList.remove('visible');
+            document.querySelectorAll('.install-btn').forEach(b => b.classList.remove('visible'));
         }
 
-        function showLogin() {
-            document.getElementById('loginOverlay').style.display = 'flex';
-        }
-
-        const loginBtn = document.getElementById('loginBtn');
-        const loginError = document.getElementById('loginError');
-        const loginErrorMsg = document.getElementById('loginErrorMsg');
-
-        async function doLogin() {
-            const username = document.getElementById('loginUser').value.trim();
-            const password = document.getElementById('loginPass').value;
-            if (!username || !password) {
-                loginErrorMsg.textContent = 'Please enter username and password';
-                loginError.classList.add('show');
+        async function triggerInstall() {
+            if (!deferredPrompt) {
+                // Fallback: show manual instructions
+                const ua = navigator.userAgent;
+                if (/iPhone|iPad/.test(ua)) {
+                    alert('📱 On iPhone/iPad:\n1. Tap the Share button (□↑)\n2. Scroll down and tap "Add to Home Screen"\n3. Tap "Add"');
+                } else if (/Android/.test(ua)) {
+                    alert('📱 On Android:\n1. Tap the menu (⋮) in your browser\n2. Tap "Add to Home Screen" or "Install App"\n3. Tap "Add"');
+                } else {
+                    alert('💻 To install:\nClick the install icon (⊕) in your browser\'s address bar, or check the browser menu for "Install App".');
+                }
                 return;
             }
-            loginBtn.disabled = true;
-            loginBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Signing in...';
-            try {
-                const res = await fetch('/api/login', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username, password })
-                });
-                const data = await res.json();
-                if (res.ok && data.success) {
-                    sessionStorage.setItem('wa_api_key', data.apiKey);
-                    API_KEY = data.apiKey;
-                    loginError.classList.remove('show');
-                    showApp();
-                } else {
-                    loginErrorMsg.textContent = data.error || 'Invalid username or password';
-                    loginError.classList.add('show');
-                }
-            } catch(e) {
-                loginErrorMsg.textContent = 'Server error. Please try again.';
-                loginError.classList.add('show');
-            } finally {
-                loginBtn.disabled = false;
-                loginBtn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Sign In';
+            const result = await deferredPrompt.prompt();
+            console.log('[PWA] Install prompt result:', result.outcome);
+            if (result.outcome === 'accepted') {
+                hideAllInstallUI();
             }
+            deferredPrompt = null;
         }
 
-        loginBtn.addEventListener('click', doLogin);
-        document.getElementById('loginPass').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
-        document.getElementById('loginUser').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('loginPass').focus(); });
-
-        // Check if already logged in
-        if (API_KEY) { showApp(); } else { showLogin(); }
-        // ──────────────────────────────────────────────────────────────
-
-        // ── RESPONSIVE: Show sidebar only on desktop ──
-        function handleResize() {
-            const sidebar = document.getElementById('broadcastSidebar');
-            const bottomNav = document.querySelector('.bottom-nav');
-            if (!sidebar) return;
-            if (window.innerWidth >= 600) {
-                sidebar.style.display = 'block';
-                if (bottomNav) bottomNav.style.display = 'none';
-            } else {
-                sidebar.style.display = 'none';
-                if (bottomNav) bottomNav.style.display = 'flex';
-            }
-        }
-        handleResize();
-        window.addEventListener('resize', handleResize);
-
-        // ── BOTTOM NAV switchPage ──
-        function switchPage(page, btn) {
-            // Update bottom nav active state
-            document.querySelectorAll('.bottom-nav-item').forEach(b => b.classList.remove('active'));
-            if (btn) btn.classList.add('active');
-
-            if (page === 'connect') {
-                // Show sidebar (QR/connection) in a dedicated panel
-                document.querySelectorAll('.page-panel').forEach(p => p.classList.remove('active'));
-                document.getElementById('pageConnect') && document.getElementById('pageConnect').classList.add('active');
-                // Fallback: show main broadcast panel but scroll to sidebar
-                if (!document.getElementById('pageConnect')) {
-                    document.getElementById('pageBroadcast').classList.add('active');
-                    document.querySelector('.sidebar')?.scrollIntoView({ behavior: 'smooth' });
-                }
-            } else if (page === 'lists') {
-                document.querySelectorAll('.page-panel').forEach(p => p.classList.remove('active'));
-                document.getElementById('pageLists').classList.add('active');
-                // Keep hidden tabLists in sync
-                document.querySelectorAll('.page-tab').forEach(t => t.classList.remove('active'));
-                document.getElementById('tabLists') && document.getElementById('tabLists').classList.add('active');
-            } else {
-                document.querySelectorAll('.page-panel').forEach(p => p.classList.remove('active'));
-                document.getElementById('pageBroadcast').classList.add('active');
-                document.querySelectorAll('.page-tab').forEach(t => t.classList.remove('active'));
-                document.getElementById('tabBroadcast') && document.getElementById('tabBroadcast').classList.add('active');
-            }
+        function dismissBanner() {
+            document.getElementById('installBanner').classList.remove('visible');
+            localStorage.setItem('installDismissed', '1');
         }
 
-        const socket = io();
-        let isConnected = false;
-        let contacts = [];
-        let selectedContacts = [];
-        let customGroups = [];
-        let selectedGroups = [];
-        let selectedMedia = null;
-        let selectedModalMembers = []; // Persistent selection for the modal
-        let editingGroupName = null; // Tracks which group is being edited
-        const groupCount = document.getElementById('groupCount');
-
-        const qrCode = document.getElementById('qrCode');
-        const qrImage = document.getElementById('qrImage');
-        const qrInstructions = document.getElementById('qrInstructions');
-        const connectedInfo = document.getElementById('connectedInfo');
-        const statusDot = document.getElementById('statusDot');
-        const statusText = document.getElementById('statusText');
-        const logoutBtn = document.getElementById('logoutBtn');
-        const importContactsBtn = document.getElementById('importContactsBtn');
-        const createGroupBtn = document.getElementById('createGroupBtn');
-        const addNumbersBtn = document.getElementById('addNumbersBtn');
-        const contactList = document.getElementById('contactList');
-        const contactCount = document.getElementById('contactCount');
-        const messageText = document.getElementById('messageText');
-        const charCount = document.getElementById('charCount');
-        const attachMediaBtn = document.getElementById('attachMediaBtn');
-        const mediaInput = document.getElementById('mediaInput');
-        const mediaPreviewCard = document.getElementById('mediaPreviewCard');
-        const progressCurrent = document.getElementById('progressCurrent');
-        const progressRecipient = document.getElementById('progressRecipient');
-        const resultsSection = document.getElementById('resultsSection');
-        const resetBtn = document.getElementById('resetBtn');
-        const toast = document.getElementById('toast');
-        const addNumbersModal = document.getElementById('addNumbersModal');
-        const addNumbersText = document.getElementById('addNumbersText');
-        const cancelAddNumbers = document.getElementById('cancelAddNumbers');
-        const confirmAddNumbers = document.getElementById('confirmAddNumbers');
-        const contactSearch = document.getElementById('contactSearch');
-        const groupSearch = document.getElementById('groupSearch');
-
-        socket.on('qr', (data) => {
-            // Main sidebar QR
-            qrCode.style.display = 'block';
-            qrImage.src = data;
-            qrInstructions.style.display = 'block';
-            connectedInfo.style.display = 'none';
-            // Connect page QR (mobile bottom nav)
-            const qrImgC = document.getElementById('qrImageConnect');
-            if (qrImgC) { qrImgC.src = data; qrImgC.style.display = 'block'; }
-            const qrInstC = document.getElementById('qrInstructionsConnect');
-            if (qrInstC) qrInstC.style.display = 'block';
-            const connC = document.getElementById('connectedInfoConnect');
-            if (connC) connC.style.display = 'none';
-        });
-
-        socket.on('status', (data) => {
-            updateStatus(data.status, data.message);
-        });
-
-        socket.on('contacts', (data) => {
-            contacts = data;
-            renderContacts();
-            contactCount.textContent = `${contacts.length} contacts loaded`;
-        });
-
-        let nextMessageTimer = null;
-
-        socket.on('sending-progress', (data) => {
-            const percent = (data.current / data.total) * 100;
-            progressFill.style.width = percent + '%';
-            progressCurrent.textContent = `${data.current} / ${data.total}`;
-            if (data.recipient) progressRecipient.textContent = data.recipient;
-
-            const statusBadge = document.getElementById('statusBadge');
-            const nextMessageTime = document.getElementById('nextMessageTime');
-
-            if (data.status === 'waiting') {
-                progressFill.style.background = 'var(--warning)';
-                progressRecipient.textContent = 'Taking a break...';
-                statusBadge.style.display = 'inline-block';
-                statusBadge.style.background = 'var(--warning)';
-                statusBadge.style.color = '#000';
-                statusBadge.textContent = 'WAITING';
-                nextMessageTime.textContent = 'Next message in ~60 seconds...';
-                let countdown = 60;
-                if (nextMessageTimer) clearInterval(nextMessageTimer);
-                nextMessageTimer = setInterval(() => {
-                    countdown--;
-                    nextMessageTime.textContent = `Next message in ~${countdown} seconds...`;
-                    if (countdown <= 0) clearInterval(nextMessageTimer);
-                }, 1000);
-            } else if (data.status === 'complete') {
-                progressFill.style.background = 'var(--success)';
-                statusBadge.style.display = 'inline-block';
-                statusBadge.style.background = 'var(--success)';
-                statusBadge.style.color = '#fff';
-                statusBadge.textContent = 'DONE';
-                nextMessageTime.textContent = '';
-                if (nextMessageTimer) clearInterval(nextMessageTimer);
-                // Update results with real server summary
-                if (data.summary) {
-                    progressSection.classList.remove('show');
-                    resultsSection.classList.add('show');
-                    document.getElementById('resultTotal').textContent = data.summary.total;
-                    document.getElementById('resultSuccess').textContent = data.summary.sent;
-                    document.getElementById('resultFailed').textContent = data.summary.failed;
-                    showToast(`Done! ${data.summary.sent} sent, ${data.summary.failed} failed.`,
-                        data.summary.failed > 0 ? 'error' : 'success');
-                }
-            } else if (data.status === 'sent') {
-                progressFill.style.background = 'var(--primary)';
-                statusBadge.style.display = 'inline-block';
-                statusBadge.style.background = 'var(--success)';
-                statusBadge.style.color = '#fff';
-                statusBadge.textContent = 'SENT';
-                nextMessageTime.textContent = 'Waiting 8-15 seconds before next message...';
-                if (nextMessageTimer) clearInterval(nextMessageTimer);
-            } else {
-                statusBadge.style.display = 'none';
-                nextMessageTime.textContent = '';
-            }
-        });
-
-        async function fetchGroups() {
-            try {
-                const response = await fetch('/api/groups', {
-                    headers: { 'x-api-key': API_KEY }
-                });
-                customGroups = await response.json();
-                renderGroups();
-            } catch (err) {
-                console.error('Failed to fetch groups:', err);
-            }
-        }
-
-        function updateStatus(status, message) {
-            statusDot.className = 'status-dot';
-            statusText.textContent = message;
-
-            if (status === 'connected') {
-                statusDot.classList.add('connected');
-                qrCode.style.display = 'none';
-                qrInstructions.style.display = 'none';
-                connectedInfo.style.display = 'block';
-                logoutBtn.style.display = 'block';
-                importContactsBtn.disabled = false;
-                createGroupBtn.disabled = false;
-                addNumbersBtn.disabled = false;
-                isConnected = true;
-                updateSendButton();
-                fetchGroups();
-            } else if (status === 'reconnecting') {
-                statusDot.classList.add('reconnecting');
-                connectedInfo.style.display = 'none'; // Ensure sidebar reflects reconnecting state
-                qrCode.style.display = 'none';
-                qrInstructions.style.display = 'block';
-                logoutBtn.style.display = 'none';
-                importContactsBtn.disabled = true;
-                createGroupBtn.disabled = true;
-                addNumbersBtn.disabled = true;
-                isConnected = false;
-            } else {
-                statusDot.classList.remove('connected', 'reconnecting');
-                logoutBtn.style.display = 'none';
-                importContactsBtn.disabled = true;
-                createGroupBtn.disabled = true;
-                addNumbersBtn.disabled = true;
-                isConnected = false;
-                qrCode.style.display = 'none';
-                qrInstructions.style.display = 'block';
-                connectedInfo.style.display = 'none';
-            }
-        }
-
-        contactSearch.addEventListener('input', (e) => {
-            renderContacts(e.target.value);
-        });
-
-        groupSearch.addEventListener('input', (e) => {
-            renderGroups(e.target.value);
-        });
-
-        function renderContacts(query = '') {
-            const listEl = document.getElementById('contactList');
-            const filtered = contacts.filter(c => 
-                !c.jid.endsWith('@broadcast') &&
-                (c.name.toLowerCase().includes(query.toLowerCase()) || 
-                 c.number.includes(query))
-            );
-            
-            if (filtered.length === 0) {
-                listEl.innerHTML = `
-                    <div style="text-align:center; padding:30px; color:var(--text-secondary);">
-                        <i class="fas fa-search" style="font-size:32px; margin-bottom:10px;"></i>
-                        <p>${query ? 'No contacts match search' : 'No contacts found'}</p>
-                    </div>
-                `;
-            } else {
-                listEl.innerHTML = filtered.map(c => `
-                    <div class="contact-item" data-jid="${c.jid}">
-                        <input type="checkbox" ${selectedContacts.includes(c.jid) ? 'checked' : ''}>
-                        <div class="contact-avatar">${c.name.charAt(0).toUpperCase()}</div>
-                        <div class="contact-info">
-                            <div class="contact-name">${c.name}</div>
-                            <div class="contact-number">${c.number}</div>
-                        </div>
-                    </div>
-                `).join('');
-            }
-
-            listEl.querySelectorAll('.contact-item').forEach(item => {
-                item.addEventListener('click', (e) => {
-                    if (e.target.type !== 'checkbox') {
-                        const checkbox = item.querySelector('input[type="checkbox"]');
-                        checkbox.checked = !checkbox.checked;
-                    }
-                    updateSelectedContacts();
-                });
+        // Register service worker
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js').then(reg => {
+                console.log('[SW] Registered:', reg.scope);
+            }).catch(err => {
+                console.warn('[SW] Registration failed:', err);
             });
         }
-
-        function renderGroups(query = '') {
-            const listEl = document.getElementById('customGroupsList');
-            const filteredGroups = customGroups.filter(g => 
-                g.name.toLowerCase().includes(query.toLowerCase())
-            );
-
-            if (filteredGroups.length === 0) {
-                listEl.innerHTML = `
-                    <div style="text-align:center; padding:30px; color:var(--text-secondary);">
-                        <i class="fas fa-users-cog" style="font-size:32px; margin-bottom:10px;"></i>
-                        <p>${query ? 'No groups match your search' : 'No custom groups created yet'}</p>
-                    </div>
-                `;
-            } else {
-                listEl.innerHTML = filteredGroups.map(g => `
-                    <div class="contact-item group-item" data-group-name="${g.name}">
-                        <input type="checkbox" ${selectedGroups.includes(g.name) ? 'checked' : ''}>
-                        <div class="contact-avatar" style="background:var(--accent);"><i class="fas fa-users"></i></div>
-                        <div class="contact-info">
-                            <div class="contact-name">${g.name}</div>
-                            <div class="contact-number">${g.members.length} members</div>
-                        </div>
-                        <div class="action-btns">
-                            <button class="edit-btn" onclick="event.stopPropagation(); openEditGroup('${encodeURIComponent(g.name)}')">
-                                <i class="fas fa-pencil-alt"></i>
-                            </button>
-                            <button class="delete-btn" onclick="event.stopPropagation(); deleteGroup('${encodeURIComponent(g.name)}')">
-                                <i class="fas fa-trash"></i>
-                            </button>
-                        </div>
-                    </div>
-                `).join('');
-            }
-
-            listEl.querySelectorAll('.group-item').forEach(item => {
-                item.addEventListener('click', (e) => {
-                    if (e.target.type !== 'checkbox' && !e.target.closest('.delete-btn') && !e.target.closest('.edit-btn')) {
-                        const checkbox = item.querySelector('input[type="checkbox"]');
-                        checkbox.checked = !checkbox.checked;
-                        const name = item.dataset.groupName;
-                        if (checkbox.checked) {
-                            if (!selectedGroups.includes(name)) selectedGroups.push(name);
-                        } else {
-                            selectedGroups = selectedGroups.filter(g => g !== name);
-                        }
-                        document.querySelector('#groupCount span').textContent = selectedGroups.length;
-                        updateSendButton();
-                    }
-                });
-            });
-        }
-
-        function updateSelectedContacts() {
-            const listEl = document.getElementById('contactList');
-            const checked = listEl.querySelectorAll('input[type="checkbox"]:checked');
-            selectedContacts = Array.from(checked).map(cb => cb.closest('.contact-item').dataset.jid);
-            
-            document.querySelector('#selectedCount span').textContent = selectedContacts.length;
-            updateSendButton();
-        }
-
-        function getRecipients() {
-            const activeTab = document.querySelector('.recipient-tab.active').dataset.tab;
-            let recipients = [];
-
-            if (activeTab === 'contacts') {
-                recipients = selectedContacts.map(jid => {
-                    const contact = contacts.find(c => c.jid === jid);
-                    return { jid, name: contact?.name || jid, number: contact?.number || jid };
-                });
-            } else if (activeTab === 'customGroups') {
-                selectedGroups.forEach(name => {
-                    const group = customGroups.find(g => g.name === name);
-                    if (group) {
-                        group.members.forEach(jid => {
-                            const contact = contacts.find(c => c.jid === jid);
-                            recipients.push({
-                                jid,
-                                name: contact?.name || jid,
-                                number: contact?.number || jid
-                            });
-                        });
-                    }
-                });
-            }
-
-            return recipients.slice(0, 100);
-        }
-
-        function updateSendButton() {
-            const recipients = getRecipients();
-            sendCount.textContent = recipients.length;
-            sendBtn.disabled = !isConnected || recipients.length === 0 || !messageText.value.trim();
-        }
-
-        function showToast(message, type = 'success') {
-            toast.className = 'toast ' + type;
-            toast.querySelector('i').className = type === 'success' ? 'fas fa-check-circle' : 'fas fa-exclamation-circle';
-            toast.querySelector('i').style.color = type === 'success' ? 'var(--success)' : 'var(--danger)';
-            document.getElementById('toastMessage').textContent = message;
-            toast.classList.add('show');
-            setTimeout(() => toast.classList.remove('show'), 3000);
-        }
-
-        document.querySelectorAll('.recipient-tab').forEach(tab => {
-            tab.addEventListener('click', () => {
-                document.querySelectorAll('.recipient-tab').forEach(t => t.classList.remove('active'));
-                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-                tab.classList.add('active');
-                document.getElementById(tab.dataset.tab + 'Tab').classList.add('active');
-                updateSendButton();
-            });
-        });
-
-        messageText.addEventListener('input', () => {
-            charCount.textContent = messageText.value.length;
-            updateSendButton();
-        });
-
-        // Media button handlers
-        attachMediaBtn.addEventListener('click', () => mediaInput.click());
-        mediaInput.addEventListener('change', () => {
-            const file = mediaInput.files[0];
-            if (!file) return;
-            selectedMedia = file;
-            const isVideo = file.type.startsWith('video');
-            // Thumbnail / icon
-            const thumb = document.getElementById('mediaThumb');
-            thumb.innerHTML = `<i class="fas fa-${isVideo ? 'film' : 'image'}" style="font-size:20px; color:var(--${isVideo ? 'accent' : 'primary'});"></i>`;
-            document.getElementById('mediaFileName').textContent = file.name;
-            document.getElementById('mediaFileSize').textContent = (file.size / 1024 / 1024).toFixed(2) + ' MB • ' + (isVideo ? 'Video' : 'Image');
-            // Show preview card, hide button
-            attachMediaBtn.style.display = 'none';
-            mediaPreviewCard.style.display = 'flex';
-        });
-
-        document.getElementById('removeMediaBtn').addEventListener('click', () => {
-            selectedMedia = null;
-            mediaInput.value = '';
-            mediaPreviewCard.style.display = 'none';
-            attachMediaBtn.style.display = 'flex';
-        });
-
-
-        sendBtn.addEventListener('click', async () => {
-            const recipients = getRecipients();
-            if (recipients.length === 0 || !messageText.value.trim()) return;
-
-            sendBtn.disabled = true;
-            progressSection.classList.add('show');
-            resultsSection.classList.remove('show');
-
-            const formData = new FormData();
-            formData.append('recipients', JSON.stringify(recipients));
-            formData.append('message', messageText.value);
-            if (selectedMedia) {
-                formData.append('media', selectedMedia);
-            }
-
-            try {
-                const res = await fetch('/api/send/bulk', {
-                    method: 'POST',
-                    headers: { 'x-api-key': API_KEY },
-                    body: formData
-                });
-                if (!res.ok) {
-                    const err = await res.json();
-                    throw new Error(err.error || 'Send failed');
-                }
-                // Results are now shown via socket 'sending-progress' complete event
-            } catch (err) {
-                showToast(err.message || 'Failed to send messages', 'error');
-                sendBtn.disabled = false;
-                progressSection.classList.remove('show');
-            }
-        });
-
-        resetBtn.addEventListener('click', () => {
-            resultsSection.classList.remove('show');
-            progressFill.style.background = 'var(--primary)';
-            sendBtn.disabled = false;
-            updateSendButton();
-        });
-
-        async function deleteGroup(name) {
-            const decodedName = decodeURIComponent(name);
-            console.log(`[Frontend] Attempting to delete group: ${decodedName}`);
-            
-            if (!confirm(`Are you sure you want to delete group "${decodedName}"?`)) return;
-            
-            try {
-                const response = await fetch(`/api/groups/${name}`, { 
-                    method: 'DELETE',
-                    headers: { 'x-api-key': API_KEY }
-                });
-                if (response.ok) {
-                    showToast(`Group "${decodedName}" deleted`);
-                    // Also clear from selected sidebar groups
-                    selectedGroups = selectedGroups.filter(g => g !== decodedName);
-                    const groupCountLabel = document.querySelector('#groupCount span');
-                    if (groupCountLabel) groupCountLabel.textContent = selectedGroups.length;
-                    
-                    fetchGroups();
-                } else {
-                    const error = await response.json();
-                    showToast(error.message || 'Failed to delete group', 'error');
-                }
-            } catch (err) {
-                console.error('Failed to delete group:', err);
-                showToast('Failed to delete group', 'error');
-            }
-        }
-        window.deleteGroup = deleteGroup;
-
-        logoutBtn.addEventListener('click', async () => {
-            if (confirm('Are you sure you want to disconnect WhatsApp?')) {
-                await fetch('/api/logout', { 
-                    method: 'POST',
-                    headers: { 'x-api-key': API_KEY }
-                });
-                sessionStorage.removeItem('wa_api_key');
-                window.location.reload();
-            }
-        });
-
-        importContactsBtn.addEventListener('click', async () => {
-            try {
-                const res = await fetch('/api/contacts/import', { 
-                    method: 'POST',
-                    headers: { 'x-api-key': API_KEY }
-                });
-                const data = await res.json();
-                if (data.contacts) {
-                    contacts = data.contacts;
-                    renderContacts();
-                    showToast(`${contacts.length} items loaded!`);
-                }
-            } catch {
-                showToast('Failed to load items', 'error');
-            }
-        });
-
-        addNumbersBtn.addEventListener('click', () => {
-            addNumbersModal.classList.add('show');
-        });
-
-        cancelAddNumbers.addEventListener('click', () => {
-            addNumbersModal.classList.remove('show');
-            addNumbersText.value = '';
-        });
-
-        confirmAddNumbers.addEventListener('click', async () => {
-            const numbers = addNumbersText.value.split('\n').map(n => n.trim()).filter(n => n);
-            if (numbers.length > 0) {
-                try {
-                    const res = await fetch('/api/contacts/add', {
-                        method: 'POST',
-                        headers: { 
-                            'Content-Type': 'application/json',
-                            'x-api-key': API_KEY
-                        },
-                        body: JSON.stringify({ numbers })
-                    });
-                    const data = await res.json();
-                    contacts = [...contacts, ...data.contacts];
-                    renderContacts();
-                    showToast(`${numbers.length} numbers added!`);
-                    addNumbersModal.classList.remove('show');
-                    addNumbersText.value = '';
-                } catch {
-                    showToast('Failed to add numbers', 'error');
-                }
-            }
-        });
-
-        // Group Modal Logic
-        const groupModal = document.createElement('div');
-        groupModal.id = 'groupModal';
-        groupModal.className = 'modal';
-        groupModal.innerHTML = `
-            <div class="modal-content" style="max-width:500px;">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
-                    <h3 style="margin:0;" id="groupModalTitle"><i class="fas fa-plus-circle"></i> Create Custom Group</h3>
-                    <span class="close" id="closeGroupModal" style="cursor:pointer; font-size:24px;">&times;</span>
-                </div>
-                <div style="padding:10px 0;">
-                    <label style="display:block; margin-bottom:5px;">Group Name</label>
-                    <input type="text" id="groupNameInput" placeholder="Enter group name..." style="width:100%; padding:10px; border-radius:8px; border:1px solid #ddd; margin-bottom:15px;">
-                    
-                    <input type="text" id="modalSearch" placeholder="Search contacts..." style="width:100%; padding:10px; border-radius:8px; border:1px solid #ddd; margin-bottom:10px;">
-                    <div id="modalSelectedCount" style="font-size:12px; margin-bottom:10px; color:var(--primary); font-weight:600;">0 members selected</div>
-                    <div id="modalContactList" style="max-height:300px; overflow-y:auto; border:1px solid #eee; border-radius:8px;">
-                        <!-- Contacts with checkboxes here -->
-                    </div>
-                    
-                    <button class="btn btn-primary" id="saveGroupBtn" style="width:100%; margin-top:20px; padding:12px;">
-                        Save Custom Group
-                    </button>
-                </div>
-            </div>
-        `;
-        document.body.appendChild(groupModal);
-
-        createGroupBtn.addEventListener('click', () => {
-            editingGroupName = null;
-            selectedModalMembers = [];
-            document.getElementById('groupNameInput').value = '';
-            document.getElementById('groupModalTitle').textContent = 'Create Custom Group';
-            updateModalCount();
-            groupModal.classList.add('show');
-            renderModalContacts();
-        });
-
-        function openEditGroup(name) {
-            const group = customGroups.find(g => g.name === decodeURIComponent(name));
-            if (!group) return;
-            
-            editingGroupName = group.name;
-            selectedModalMembers = [...group.members];
-            document.getElementById('groupNameInput').value = group.name;
-            document.getElementById('groupModalTitle').textContent = 'Edit Custom Group';
-            updateModalCount();
-            groupModal.classList.add('show');
-            renderModalContacts();
-        }
-        window.openEditGroup = openEditGroup;
-
-        document.getElementById('closeGroupModal').addEventListener('click', () => {
-            groupModal.classList.remove('show');
-        });
-
-        function renderModalContacts(query = '') {
-            const listEl = document.getElementById('modalContactList');
-            const filtered = contacts.filter(c => 
-                (c.name.toLowerCase().includes(query.toLowerCase()) || 
-                 c.number.includes(query)) && !c.jid.endsWith('@broadcast')
-            );
-            
-            const selected = filtered.filter(c => selectedModalMembers.includes(c.jid));
-            const others = filtered.filter(c => !selectedModalMembers.includes(c.jid));
-
-            const renderItem = (c) => `
-                <div class="contact-item modal-contact-item" data-jid="${c.jid}" style="padding:10px; border-bottom:1px solid #f5f5f5; display:flex; align-items:center; cursor:pointer;">
-                    <input type="checkbox" value="${c.jid}" class="modal-check" ${selectedModalMembers.includes(c.jid) ? 'checked' : ''}>
-                    <div style="margin-left:15px;">
-                        <div style="font-weight:600; font-size:14px;">${c.name}</div>
-                        <div style="font-size:12px; color:#666;">${c.number}</div>
-                    </div>
-                </div>
-            `;
-
-            let html = '';
-            if (selected.length > 0) {
-                html += `<div style="padding:8px 15px; background:#f8f9fa; font-size:11px; font-weight:700; color:#666; text-transform:uppercase; letter-spacing:0.5px; border-bottom:1px solid #eee;">Selected In Group (${selected.length})</div>`;
-                html += selected.map(renderItem).join('');
-            }
-            if (others.length > 0) {
-                html += `<div style="padding:8px 15px; background:#f8f9fa; font-size:11px; font-weight:700; color:#666; text-transform:uppercase; letter-spacing:0.5px; border-bottom:1px solid #eee; border-top: ${selected.length > 0 ? '1px solid #eee' : 'none'}">Available Contacts (${others.length})</div>`;
-                html += others.map(renderItem).join('');
-            }
-
-            if (!html) {
-                html = `<div style="text-align:center; padding:30px; color:#999; font-size:14px;">No contacts found matching "${query}"</div>`;
-            }
-
-            listEl.innerHTML = html;
-            
-            listEl.querySelectorAll('.modal-contact-item').forEach(item => {
-                item.addEventListener('click', (e) => {
-                    const cb = item.querySelector('input[type="checkbox"]');
-                    if (e.target !== cb) cb.checked = !cb.checked;
-                    
-                    const jid = cb.value;
-                    if (cb.checked) {
-                        if (!selectedModalMembers.includes(jid)) selectedModalMembers.push(jid);
-                    } else {
-                        selectedModalMembers = selectedModalMembers.filter(m => m !== jid);
-                    }
-                    updateModalCount();
-                });
-            });
-        }
-
-        function updateModalCount() {
-            const countEl = document.getElementById('modalSelectedCount');
-            if (countEl) {
-                countEl.textContent = `${selectedModalMembers.length} members selected`;
-            }
-        }
-
-        document.getElementById('modalSearch').addEventListener('input', (e) => {
-            renderModalContacts(e.target.value);
-        });
-
-        document.getElementById('saveGroupBtn').addEventListener('click', async () => {
-            const name = document.getElementById('groupNameInput').value.trim();
-            
-            if (!name || selectedModalMembers.length === 0) {
-                showToast('Please enter a name and select members', 'error');
-                return;
-            }
-
-            try {
-                // If editing and name changed, delete old and create new
-                if (editingGroupName && editingGroupName !== name) {
-                    await fetch(`/api/groups/${encodeURIComponent(editingGroupName)}`, { 
-                        method: 'DELETE',
-                        headers: { 'x-api-key': API_KEY }
-                    });
-                }
-
-                const response = await fetch('/api/groups', {
-                    method: 'POST',
-                    headers: { 
-                        'Content-Type': 'application/json',
-                        'x-api-key': API_KEY
-                    },
-                    body: JSON.stringify({ name, members: selectedModalMembers })
-                });
-                if (response.ok) {
-                    groupModal.classList.remove('show');
-                    document.getElementById('groupNameInput').value = '';
-                    showToast(`Group "${name}" saved!`);
-                    fetchGroups();
-                }
-            } catch (err) {
-                showToast('Failed to save group', 'error');
-            }
-        });
-
-        // ═══════════════════════════════════════════════════
-        // PAGE TABS
-        // ═══════════════════════════════════════════════════
-        document.querySelectorAll('.page-tab').forEach(tab => {
-            tab.addEventListener('click', () => {
-                document.querySelectorAll('.page-tab').forEach(t => t.classList.remove('active'));
-                document.querySelectorAll('.page-panel').forEach(p => p.classList.remove('active'));
-                tab.classList.add('active');
-                document.getElementById('page' + tab.dataset.page.charAt(0).toUpperCase() + tab.dataset.page.slice(1)).classList.add('active');
-                if (tab.dataset.page === 'lists') {
-                    fetchBroadcastLists();
-                }
-            });
-        });
-
-        // ═══════════════════════════════════════════════════
-        // BROADCAST LIST MANAGER
-        // ═══════════════════════════════════════════════════
-        let broadcastLists = [];
-        let blEditingId = null;
-        let blSelectedMembers = [];
-        let blSendTargetList = null;
-
-        async function fetchBroadcastLists() {
-            try {
-                const res = await fetch('/api/broadcast-lists', { headers: { 'x-api-key': API_KEY } });
-                broadcastLists = await res.json();
-                renderBroadcastLists();
-            } catch(e) { console.error('Failed to fetch broadcast lists:', e); }
-        }
-
-        function renderBroadcastLists(query = '') {
-            const grid = document.getElementById('blGrid');
-            const filtered = broadcastLists.filter(l =>
-                l.name.toLowerCase().includes(query.toLowerCase()) ||
-                (l.description || '').toLowerCase().includes(query.toLowerCase())
-            );
-
-            const totalMembers = broadcastLists.reduce((s, l) => s + l.members.length, 0);
-            document.getElementById('blStatTotal').textContent = broadcastLists.length;
-            document.getElementById('blStatMembers').textContent = totalMembers;
-
-            if (filtered.length === 0) {
-                grid.innerHTML = `<div class="bl-empty" style="grid-column:1/-1;">
-                    <i class="fas fa-broadcast-tower"></i>
-                    <p style="font-size:15px; font-weight:600; margin-bottom:8px;">${query ? 'No lists match "' + query + '"' : 'No broadcast lists yet'}</p>
-                    <p style="font-size:13px;">Click <strong>New List</strong> to create one</p>
-                </div>`;
-                return;
-            }
-
-            grid.innerHTML = filtered.map(l => {
-                const date = new Date(l.updatedAt || l.createdAt).toLocaleDateString();
-                return `<div class="bl-card" data-id="${l.id}">
-                    <div class="bl-card-title">
-                        <i class="fas fa-broadcast-tower"></i>
-                        ${escHtml(l.name)}
-                    </div>
-                    <div class="bl-card-desc">${l.description ? escHtml(l.description) : '<em style="opacity:0.5">No description</em>'}</div>
-                    <div class="bl-card-meta">
-                        <span class="bl-badge"><i class="fas fa-users"></i> ${l.members.length} members</span>
-                        <div class="bl-actions">
-                            <button class="edit-btn" title="Edit" onclick="blEdit('${l.id}')"><i class="fas fa-pencil-alt"></i></button>
-                            <button class="bl-send-btn" onclick="blSend('${l.id}')" ${!isConnected ? 'disabled title="Connect WhatsApp first"' : ''}><i class="fas fa-paper-plane"></i> Send</button>
-                            <button class="delete-btn" title="Delete" onclick="blDelete('${l.id}')"><i class="fas fa-trash"></i></button>
-                        </div>
-                    </div>
-                    <div style="font-size:11px; color:var(--text-secondary); margin-top:10px;">Updated ${date}</div>
-                </div>`;
-            }).join('');
-        }
-
-        function escHtml(str) { const d = document.createElement('div'); d.textContent = str; return d.innerHTML; }
-
-        document.getElementById('blSearch').addEventListener('input', e => renderBroadcastLists(e.target.value));
-
-        // Open Create Modal
-        document.getElementById('blCreateBtn').addEventListener('click', () => {
-            blEditingId = null;
-            blSelectedMembers = [];
-            document.getElementById('blNameInput').value = '';
-            document.getElementById('blDescInput').value = '';
-            document.getElementById('blModalTitle').innerHTML = '<i class="fas fa-broadcast-tower" style="color:var(--accent);"></i> New Broadcast List';
-            document.getElementById('blSaveBtn').textContent = 'Save Broadcast List';
-            renderBlMemberList();
-            document.getElementById('blModal').classList.add('show');
-        });
-
-        function blEdit(id) {
-            const list = broadcastLists.find(l => l.id === id);
-            if (!list) return;
-            blEditingId = id;
-            blSelectedMembers = [...list.members];
-            document.getElementById('blNameInput').value = list.name;
-            document.getElementById('blDescInput').value = list.description || '';
-            document.getElementById('blModalTitle').innerHTML = '<i class="fas fa-pencil-alt" style="color:var(--accent);"></i> Edit Broadcast List';
-            document.getElementById('blSaveBtn').innerHTML = '<i class="fas fa-save"></i> Update List';
-            renderBlMemberList();
-            document.getElementById('blModal').classList.add('show');
-        }
-        window.blEdit = blEdit;
-
-        async function blDelete(id) {
-            const list = broadcastLists.find(l => l.id === id);
-            if (!list || !confirm(`Delete "${list.name}"?`)) return;
-            try {
-                const res = await fetch(`/api/broadcast-lists/${id}`, {
-                    method: 'DELETE', headers: { 'x-api-key': API_KEY }
-                });
-                if (res.ok) { showToast(`"${list.name}" deleted`); fetchBroadcastLists(); }
-                else showToast('Delete failed', 'error');
-            } catch(e) { showToast('Delete failed', 'error'); }
-        }
-        window.blDelete = blDelete;
-
-        function blSend(id) {
-            const list = broadcastLists.find(l => l.id === id);
-            if (!list) return;
-            blSendTargetList = list;
-            document.getElementById('blSendTitle').innerHTML = `<i class="fas fa-paper-plane" style="color:var(--primary);"></i> Send to "${escHtml(list.name)}"`;
-            document.getElementById('blSendInfo').textContent = `This will send your message to ${list.members.length} members.`;
-            document.getElementById('blSendMsg').value = '';
-            document.getElementById('blSendModal').classList.add('show');
-        }
-        window.blSend = blSend;
-
-        document.getElementById('blSendClose').addEventListener('click', () => document.getElementById('blSendModal').classList.remove('show'));
-        document.getElementById('blSendCancelBtn').addEventListener('click', () => document.getElementById('blSendModal').classList.remove('show'));
-
-        document.getElementById('blSendConfirmBtn').addEventListener('click', async () => {
-            if (!blSendTargetList) return;
-            const msg = document.getElementById('blSendMsg').value.trim();
-            if (!msg) { showToast('Please enter a message', 'error'); return; }
-            const recipients = blSendTargetList.members.map(jid => ({ jid, name: jid, number: jid }));
-            if (recipients.length === 0) { showToast('No members in this list', 'error'); return; }
-
-            const btn = document.getElementById('blSendConfirmBtn');
-            btn.disabled = true;
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
-
-            try {
-                const fd = new FormData();
-                fd.append('recipients', JSON.stringify(recipients));
-                fd.append('message', msg);
-                const res = await fetch('/api/send/bulk', { method: 'POST', headers: { 'x-api-key': API_KEY }, body: fd });
-                if (!res.ok) { const e = await res.json(); throw new Error(e.error); }
-                document.getElementById('blSendModal').classList.remove('show');
-                showToast(`Sending to ${recipients.length} members...`);
-                // Switch to broadcast tab to see progress
-                document.getElementById('tabBroadcast').click();
-                progressSection.classList.add('show');
-                resultsSection.classList.remove('show');
-            } catch(e) {
-                showToast(e.message || 'Send failed', 'error');
-            } finally {
-                btn.disabled = false;
-                btn.innerHTML = '<i class="fas fa-paper-plane"></i> Send';
-            }
-        });
-
-        // BL Modal member list
-        document.getElementById('blMemberSearch').addEventListener('input', e => renderBlMemberList(e.target.value));
-
-        function renderBlMemberList(query = '') {
-            const el = document.getElementById('blMemberList');
-            const filtered = contacts.filter(c =>
-                !c.jid.endsWith('@broadcast') &&
-                (c.name.toLowerCase().includes(query.toLowerCase()) || c.number.includes(query))
-            );
-            document.getElementById('blSelectedInfo').textContent = `${blSelectedMembers.length} members selected`;
-
-            if (filtered.length === 0) {
-                el.innerHTML = `<div style="text-align:center; padding:20px; color:var(--text-secondary); font-size:13px;">
-                    ${contacts.length === 0 ? 'Connect WhatsApp to import contacts first' : 'No contacts match search'}
-                </div>`; return;
-            }
-
-            const selected = filtered.filter(c => blSelectedMembers.includes(c.jid));
-            const others = filtered.filter(c => !blSelectedMembers.includes(c.jid));
-
-            let html = '';
-            if (selected.length) html += `<div style="padding:6px 12px; font-size:11px; font-weight:700; color:var(--primary); background:rgba(37,211,102,0.08); border-bottom:1px solid var(--border);">SELECTED (${selected.length})</div>`
-                + selected.map(c => blMemberItem(c)).join('');
-            if (others.length) html += `<div style="padding:6px 12px; font-size:11px; font-weight:700; color:var(--text-secondary); background:var(--bg-card); border-bottom:1px solid var(--border);">AVAILABLE (${others.length})</div>`
-                + others.map(c => blMemberItem(c)).join('');
-
-            el.innerHTML = html;
-            el.querySelectorAll('.bl-member-item').forEach(item => {
-                item.addEventListener('click', () => {
-                    const jid = item.dataset.jid;
-                    if (blSelectedMembers.includes(jid)) blSelectedMembers = blSelectedMembers.filter(m => m !== jid);
-                    else blSelectedMembers.push(jid);
-                    renderBlMemberList(query);
-                });
-            });
-        }
-
-        function blMemberItem(c) {
-            const checked = blSelectedMembers.includes(c.jid);
-            return `<div class="bl-member-item contact-item" data-jid="${c.jid}" style="${checked ? 'background:var(--primary-dark);' : ''}">
-                <input type="checkbox" ${checked ? 'checked' : ''} onclick="event.stopPropagation();">
-                <div class="contact-avatar" style="font-size:13px;">${c.name.charAt(0).toUpperCase()}</div>
-                <div class="contact-info"><div class="contact-name">${escHtml(c.name)}</div><div class="contact-number">${c.number}</div></div>
-            </div>`;
-        }
-
-        document.getElementById('blModalClose').addEventListener('click', () => document.getElementById('blModal').classList.remove('show'));
-
-        document.getElementById('blSaveBtn').addEventListener('click', async () => {
-            const name = document.getElementById('blNameInput').value.trim();
-            const description = document.getElementById('blDescInput').value.trim();
-            if (!name) { showToast('List name is required', 'error'); return; }
-            if (blSelectedMembers.length === 0) { showToast('Select at least one member', 'error'); return; }
-
-            const payload = { name, description, members: blSelectedMembers };
-            if (blEditingId) payload.id = blEditingId; // for PUT
-
-            try {
-                const url = blEditingId ? `/api/broadcast-lists/${blEditingId}` : '/api/broadcast-lists';
-                const method = blEditingId ? 'PUT' : 'POST';
-                const res = await fetch(url, {
-                    method,
-                    headers: { 'Content-Type': 'application/json', 'x-api-key': API_KEY },
-                    body: JSON.stringify(payload)
-                });
-                if (res.ok) {
-                    document.getElementById('blModal').classList.remove('show');
-                    showToast(blEditingId ? 'List updated!' : 'List created!');
-                    fetchBroadcastLists();
-                } else {
-                    const e = await res.json();
-                    showToast(e.error || 'Save failed', 'error');
-                }
-            } catch(e) { showToast('Save failed', 'error'); }
-        });
-
-        // ═══ Keep blStatActive updated ═══
-        function updateBlActiveCount() {
-            // Placeholder — lists aren't selectable in the grid (per-list actions only)
-            document.getElementById('blStatActive').textContent = 0;
-        }
-
     </script>
 </body>
 </html>

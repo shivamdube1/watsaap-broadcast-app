@@ -1,0 +1,369 @@
+{
+  "name": "Drip Engine — 5. ESP Webhook Handler",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "webhooks/esp",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-esp",
+      "name": "Webhook: POST /webhooks/esp",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "esp-webhook-handler"
+    },
+    {
+      "parameters": {
+        "code": {
+          "execute": {
+            "code": "// Normalise event payload from Brevo or AWS SES\n// Brevo sends an array of events; SES sends SNS-wrapped JSON\nconst body = $input.item.json.body;\nlet events = [];\n\nif (Array.isArray(body)) {\n  // Brevo: array of event objects\n  events = body;\n} else if (body?.Message) {\n  // AWS SNS notification wrapping SES events\n  const msg = JSON.parse(body.Message);\n  if (msg.eventType) {\n    events = [{\n      event:     msg.eventType.toLowerCase(),\n      email:     msg.mail?.destination?.[0],\n      messageId: msg.mail?.messageId,\n      ...msg\n    }];\n  }\n} else if (body?.event) {\n  // Single Brevo event\n  events = [body];\n}\n\nif (events.length === 0) {\n  console.warn('[ESP Webhook] No parseable events in payload:', JSON.stringify(body));\n  return [{ json: { event: '__no_op__', email: null, messageId: null, raw: body } }];\n}\n\nreturn events.map(e => ({\n  json: {\n    event:     (e.event || e.eventType || '').toLowerCase(),\n    email:     (e.email || e.to || '').toLowerCase().trim(),\n    messageId: e['message-id'] || e.messageId || e.MessageId || null,\n    raw:       e\n  }\n}));"
+          }
+        }
+      },
+      "id": "code-normalise-event",
+      "name": "Code: Normalise ESP Event",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {"caseSensitive": false, "leftValue": "", "typeValidation": "loose"},
+                "conditions": [
+                  {"id": "hb", "leftValue": "={{ $json.event }}", "rightValue": "hard_bounce", "operator": {"type": "string", "operation": "equals"}}
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "hard_bounce"
+            },
+            {
+              "conditions": {
+                "options": {"caseSensitive": false, "leftValue": "", "typeValidation": "loose"},
+                "conditions": [
+                  {"id": "unsub", "leftValue": "={{ $json.event }}", "rightValue": "unsubscribe", "operator": {"type": "string", "operation": "equals"}}
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "unsubscribe"
+            },
+            {
+              "conditions": {
+                "options": {"caseSensitive": false, "leftValue": "", "typeValidation": "loose"},
+                "conditions": [
+                  {"id": "open", "leftValue": "={{ $json.event }}", "rightValue": "open", "operator": {"type": "string", "operation": "equals"}}
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "open"
+            },
+            {
+              "conditions": {
+                "options": {"caseSensitive": false, "leftValue": "", "typeValidation": "loose"},
+                "conditions": [
+                  {"id": "click", "leftValue": "={{ $json.event }}", "rightValue": "click", "operator": {"type": "string", "operation": "equals"}}
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "click"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "id": "switch-event-type",
+      "name": "Switch: Event Type",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [680, 300]
+    },
+
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE contacts SET status = 'bounced', updated_at = NOW()\nWHERE email = $1\nRETURNING id",
+        "additionalFields": {
+          "queryParams": "={{ JSON.stringify([$json.email]) }}"
+        }
+      },
+      "id": "pg-bounce-contact",
+      "name": "PG: Mark Contact Bounced",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [900, 100],
+      "credentials": {
+        "postgres": {
+          "id": "drip-postgres",
+          "name": "Drip Engine Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO suppression_list (email, reason)\nVALUES ($1, 'hard_bounce')\nON CONFLICT (email) DO NOTHING",
+        "additionalFields": {
+          "queryParams": "={{ JSON.stringify([$json.email]) }}"
+        }
+      },
+      "id": "pg-suppress-bounce",
+      "name": "PG: Suppress Hard Bounce",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1120, 100],
+      "credentials": {
+        "postgres": {
+          "id": "drip-postgres",
+          "name": "Drip Engine Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE email_queue SET status = 'cancelled', updated_at = NOW()\nWHERE contact_id = (SELECT id FROM contacts WHERE email = $1 LIMIT 1)\n  AND status = 'pending'",
+        "additionalFields": {
+          "queryParams": "={{ JSON.stringify([$json.email]) }}"
+        }
+      },
+      "id": "pg-cancel-bounce-queue",
+      "name": "PG: Cancel Bounce Queue",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1340, 100],
+      "credentials": {
+        "postgres": {
+          "id": "drip-postgres",
+          "name": "Drip Engine Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO email_logs (contact_id, campaign_id, event_type, raw_payload, occurred_at)\nSELECT c.id, eq.campaign_id, 'hard_bounce', $2::jsonb, NOW()\nFROM contacts c\nLEFT JOIN email_queue eq ON eq.contact_id = c.id\nWHERE c.email = $1\nLIMIT 1",
+        "additionalFields": {
+          "queryParams": "={{ JSON.stringify([$json.email, JSON.stringify($json.raw)]) }}"
+        }
+      },
+      "id": "pg-log-bounce",
+      "name": "PG: Log Bounce Event",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1560, 100],
+      "credentials": {
+        "postgres": {
+          "id": "drip-postgres",
+          "name": "Drip Engine Postgres"
+        }
+      }
+    },
+
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO suppression_list (email, reason)\nVALUES ($1, 'unsubscribed')\nON CONFLICT (email) DO NOTHING",
+        "additionalFields": {
+          "queryParams": "={{ JSON.stringify([$json.email]) }}"
+        }
+      },
+      "id": "pg-suppress-unsub",
+      "name": "PG: Suppress Unsubscribe",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [900, 260],
+      "credentials": {
+        "postgres": {
+          "id": "drip-postgres",
+          "name": "Drip Engine Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE email_queue SET status = 'cancelled', updated_at = NOW()\nWHERE contact_id = (SELECT id FROM contacts WHERE email = $1 LIMIT 1)\n  AND status = 'pending'",
+        "additionalFields": {
+          "queryParams": "={{ JSON.stringify([$json.email]) }}"
+        }
+      },
+      "id": "pg-cancel-unsub-queue",
+      "name": "PG: Cancel Unsub Queue",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1120, 260],
+      "credentials": {
+        "postgres": {
+          "id": "drip-postgres",
+          "name": "Drip Engine Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO email_logs (contact_id, campaign_id, event_type, raw_payload, occurred_at)\nSELECT c.id, eq.campaign_id, 'unsubscribe', $2::jsonb, NOW()\nFROM contacts c\nLEFT JOIN email_queue eq ON eq.contact_id = c.id\nWHERE c.email = $1\nLIMIT 1",
+        "additionalFields": {
+          "queryParams": "={{ JSON.stringify([$json.email, JSON.stringify($json.raw)]) }}"
+        }
+      },
+      "id": "pg-log-unsub",
+      "name": "PG: Log Unsub Event",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1340, 260],
+      "credentials": {
+        "postgres": {
+          "id": "drip-postgres",
+          "name": "Drip Engine Postgres"
+        }
+      }
+    },
+
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT eq.id AS queue_id, eq.contact_id, eq.campaign_id\nFROM email_queue eq\nWHERE eq.esp_message_id = $1\nLIMIT 1",
+        "additionalFields": {
+          "queryParams": "={{ JSON.stringify([$json.messageId]) }}"
+        }
+      },
+      "id": "pg-find-open-queue",
+      "name": "PG: Find Queue by MessageId (Open)",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [900, 420],
+      "credentials": {
+        "postgres": {
+          "id": "drip-postgres",
+          "name": "Drip Engine Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO email_logs\n  (email_queue_id, contact_id, campaign_id, event_type, raw_payload, occurred_at)\nVALUES ($1::uuid, $2::uuid, $3::uuid, 'open', $4::jsonb, NOW())\nON CONFLICT DO NOTHING",
+        "additionalFields": {
+          "queryParams": "={{ JSON.stringify([$json.queue_id, $json.contact_id, $json.campaign_id, JSON.stringify($('Code: Normalise ESP Event').item.json.raw)]) }}"
+        }
+      },
+      "id": "pg-log-open",
+      "name": "PG: Log Open Event",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1120, 420],
+      "credentials": {
+        "postgres": {
+          "id": "drip-postgres",
+          "name": "Drip Engine Postgres"
+        }
+      }
+    },
+
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT eq.id AS queue_id, eq.contact_id, eq.campaign_id\nFROM email_queue eq\nWHERE eq.esp_message_id = $1\nLIMIT 1",
+        "additionalFields": {
+          "queryParams": "={{ JSON.stringify([$json.messageId]) }}"
+        }
+      },
+      "id": "pg-find-click-queue",
+      "name": "PG: Find Queue by MessageId (Click)",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [900, 580],
+      "credentials": {
+        "postgres": {
+          "id": "drip-postgres",
+          "name": "Drip Engine Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO email_logs\n  (email_queue_id, contact_id, campaign_id, event_type, raw_payload, occurred_at)\nVALUES ($1::uuid, $2::uuid, $3::uuid, 'click', $4::jsonb, NOW())\nON CONFLICT DO NOTHING",
+        "additionalFields": {
+          "queryParams": "={{ JSON.stringify([$json.queue_id, $json.contact_id, $json.campaign_id, JSON.stringify($('Code: Normalise ESP Event').item.json.raw)]) }}"
+        }
+      },
+      "id": "pg-log-click",
+      "name": "PG: Log Click Event",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1120, 580],
+      "credentials": {
+        "postgres": {
+          "id": "drip-postgres",
+          "name": "Drip Engine Postgres"
+        }
+      }
+    },
+
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={ \"received\": true }"
+      },
+      "id": "respond-received",
+      "name": "Respond: Received",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1780, 300]
+    }
+  ],
+  "connections": {
+    "Webhook: POST /webhooks/esp": {
+      "main": [[{"node": "Code: Normalise ESP Event", "type": "main", "index": 0}]]
+    },
+    "Code: Normalise ESP Event": {
+      "main": [[{"node": "Switch: Event Type", "type": "main", "index": 0}]]
+    },
+    "Switch: Event Type": {
+      "main": [
+        [{"node": "PG: Mark Contact Bounced",             "type": "main", "index": 0}],
+        [{"node": "PG: Suppress Unsubscribe",             "type": "main", "index": 0}],
+        [{"node": "PG: Find Queue by MessageId (Open)",   "type": "main", "index": 0}],
+        [{"node": "PG: Find Queue by MessageId (Click)",  "type": "main", "index": 0}]
+      ]
+    },
+    "PG: Mark Contact Bounced":           {"main": [[{"node": "PG: Suppress Hard Bounce",  "type": "main", "index": 0}]]},
+    "PG: Suppress Hard Bounce":           {"main": [[{"node": "PG: Cancel Bounce Queue",   "type": "main", "index": 0}]]},
+    "PG: Cancel Bounce Queue":            {"main": [[{"node": "PG: Log Bounce Event",       "type": "main", "index": 0}]]},
+    "PG: Log Bounce Event":               {"main": [[{"node": "Respond: Received",          "type": "main", "index": 0}]]},
+
+    "PG: Suppress Unsubscribe":           {"main": [[{"node": "PG: Cancel Unsub Queue",    "type": "main", "index": 0}]]},
+    "PG: Cancel Unsub Queue":             {"main": [[{"node": "PG: Log Unsub Event",        "type": "main", "index": 0}]]},
+    "PG: Log Unsub Event":                {"main": [[{"node": "Respond: Received",          "type": "main", "index": 0}]]},
+
+    "PG: Find Queue by MessageId (Open)": {"main": [[{"node": "PG: Log Open Event",         "type": "main", "index": 0}]]},
+    "PG: Log Open Event":                 {"main": [[{"node": "Respond: Received",           "type": "main", "index": 0}]]},
+
+    "PG: Find Queue by MessageId (Click)":{"main": [[{"node": "PG: Log Click Event",        "type": "main", "index": 0}]]},
+    "PG: Log Click Event":                {"main": [[{"node": "Respond: Received",           "type": "main", "index": 0}]]}
+  },
+  "settings": {
+    "errorWorkflow": "",
+    "saveManualExecutions": true,
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": ["drip-engine"],
+  "meta": {
+    "instanceId": "drip-engine-local"
+  }
+}

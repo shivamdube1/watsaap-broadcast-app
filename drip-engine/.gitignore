@@ -1,0 +1,16 @@
+# ── Secrets — NEVER commit these ─────────────────────────────
+.env
+
+# ── Docker runtime data ───────────────────────────────────────
+postgres_data/
+n8n_data/
+
+# ── OS junk ───────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── Editor ────────────────────────────────────────────────────
+.vscode/
+*.swp
+*.swo

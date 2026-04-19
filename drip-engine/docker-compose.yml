@@ -1,0 +1,130 @@
+version: "3.9"
+
+# ============================================================
+#  Drip Engine — Docker Compose
+#  Starts: n8n (workflow engine) + PostgreSQL (database)
+# ============================================================
+
+services:
+
+  # ──────────────────────────────────────────────────────────
+  # PostgreSQL 15
+  # ──────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:15-alpine
+    container_name: drip_engine_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB:       ${POSTGRES_DB}
+      POSTGRES_USER:     ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      # Auto-run schema on first start (only runs when data dir is empty)
+      - ./schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
+    networks:
+      - drip_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ──────────────────────────────────────────────────────────
+  # n8n Workflow Engine
+  # ──────────────────────────────────────────────────────────
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: drip_engine_n8n
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "5678:5678"
+    environment:
+      # ── Database ────────────────────────────────────────
+      DB_TYPE:                      postgresdb
+      DB_POSTGRESDB_HOST:           postgres
+      DB_POSTGRESDB_PORT:           5432
+      DB_POSTGRESDB_DATABASE:       ${POSTGRES_DB}
+      DB_POSTGRESDB_USER:           ${POSTGRES_USER}
+      DB_POSTGRESDB_PASSWORD:       ${POSTGRES_PASSWORD}
+
+      # ── Auth ────────────────────────────────────────────
+      N8N_BASIC_AUTH_ACTIVE:        "true"
+      N8N_BASIC_AUTH_USER:          ${N8N_BASIC_AUTH_USER}
+      N8N_BASIC_AUTH_PASSWORD:      ${N8N_BASIC_AUTH_PASSWORD}
+
+      # ── Webhook / public URL ─────────────────────────────
+      WEBHOOK_URL:                  ${WEBHOOK_URL}
+      N8N_HOST:                     0.0.0.0
+      N8N_PORT:                     5678
+      N8N_PROTOCOL:                 http
+
+      # ── Security ─────────────────────────────────────────
+      N8N_ENCRYPTION_KEY:           ${N8N_ENCRYPTION_KEY}
+
+      # ── Execution settings ───────────────────────────────
+      EXECUTIONS_PROCESS:           main
+      EXECUTIONS_DATA_SAVE_ON_SUCCESS: all
+      EXECUTIONS_DATA_SAVE_ON_ERROR:   all
+      EXECUTIONS_DATA_PRUNE:        "true"
+      EXECUTIONS_DATA_MAX_AGE:      720   # hours (30 days)
+
+      # ── Sender identity (used by send-email Code node) ───────────
+      DEFAULT_FROM_EMAIL:           ${DEFAULT_FROM_EMAIL}
+      DEFAULT_FROM_NAME:            ${DEFAULT_FROM_NAME}
+
+      # ── Brevo API key (readable via process.env in Code nodes) ───
+      BREVO_API_KEY:                ${BREVO_API_KEY}
+
+      # ── Timezone ─────────────────────────────────────────
+      GENERIC_TIMEZONE:             UTC
+      TZ:                           UTC
+
+    volumes:
+      - n8n_data:/home/node/.n8n
+      # Make workflow JSON files available inside the container
+      - ./workflows:/home/node/workflows:ro
+    networks:
+      - drip_net
+
+  # ──────────────────────────────────────────────────────────
+  # WhatsApp Microservice
+  # ──────────────────────────────────────────────────────────
+  whatsapp:
+    build: ./whatsapp
+    container_name: drip_engine_whatsapp
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      POSTGRES_DB:       ${POSTGRES_DB}
+      POSTGRES_USER:     ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - ./whatsapp/auth_info:/app/auth_info
+    ports:
+      - "4000:4000"
+    networks:
+      - drip_net
+
+# ──────────────────────────────────────────────────────────
+# Named Volumes
+# ──────────────────────────────────────────────────────────
+volumes:
+  postgres_data:
+    driver: local
+  n8n_data:
+    driver: local
+
+# ──────────────────────────────────────────────────────────
+# Networks
+# ──────────────────────────────────────────────────────────
+networks:
+  drip_net:
+    driver: bridge

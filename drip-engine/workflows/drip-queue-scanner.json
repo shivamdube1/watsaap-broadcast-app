@@ -1,0 +1,115 @@
+{
+  "name": "Drip Engine — 2. Queue Scanner",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 30
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Schedule: Every 30 Minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n  eq.id               AS queue_id,\n  eq.subscriber_sequence_id,\n  eq.campaign_id,\n  eq.contact_id,\n  eq.step_order,\n  eq.scheduled_for,\n  c.email,\n  c.metadata,\n  ds.subject,\n  ds.template_body,\n  ds.delay_days,\n  cam.hourly_limit,\n  cam.from_email,\n  cam.reply_to_email\nFROM email_queue eq\nJOIN contacts  c   ON c.id   = eq.contact_id\nJOIN drip_steps ds ON ds.campaign_id = eq.campaign_id\n                   AND ds.step_order  = eq.step_order\nJOIN campaigns cam ON cam.id = eq.campaign_id\nWHERE eq.status        = 'pending'\n  AND eq.scheduled_for <= NOW()\n  AND cam.is_active    = true\n  AND c.status         = 'active'\nORDER BY eq.scheduled_for ASC\nLIMIT 500",
+        "additionalFields": {}
+      },
+      "id": "pg-scan-queue",
+      "name": "PG: Scan Pending Queue",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [460, 300],
+      "credentials": {
+        "postgres": {
+          "id": "drip-postgres",
+          "name": "Drip Engine Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "id": "split-queue-items",
+      "name": "Split: One Queue Item",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "={{ $workflow.id }}",
+          "mode": "id"
+        },
+        "workflowName": "Drip Engine — 4. Send Email (Sub-Workflow)",
+        "options": {
+          "waitForSubWorkflow": true
+        },
+        "fields": {
+          "values": [
+            {
+              "name": "queueItem",
+              "stringValue": "={{ JSON.stringify($json) }}"
+            }
+          ]
+        }
+      },
+      "id": "execute-send-email",
+      "name": "Execute: Send Email Sub-Workflow",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "code": {
+          "execute": {
+            "code": "// Log scanner completion summary\nconst items = $input.all();\nconst sent    = items.filter(i => i.json.status === 'sent').length;\nconst skipped = items.filter(i => i.json.skipped).length;\nconst limited = items.filter(i => i.json.rateLimited).length;\nconsole.log(`[Queue Scanner] Run complete. sent=${sent} skipped=${skipped} rateLimited=${limited}`);\nreturn [{ json: { scanned: items.length, sent, skipped, rateLimited: limited } }];"
+          }
+        }
+      },
+      "id": "code-summary",
+      "name": "Code: Log Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1120, 300]
+    }
+  ],
+  "connections": {
+    "Schedule: Every 30 Minutes": {
+      "main": [[{"node": "PG: Scan Pending Queue", "type": "main", "index": 0}]]
+    },
+    "PG: Scan Pending Queue": {
+      "main": [[{"node": "Split: One Queue Item", "type": "main", "index": 0}]]
+    },
+    "Split: One Queue Item": {
+      "main": [[{"node": "Execute: Send Email Sub-Workflow", "type": "main", "index": 0}]]
+    },
+    "Execute: Send Email Sub-Workflow": {
+      "main": [[{"node": "Code: Log Summary", "type": "main", "index": 0}]]
+    }
+  },
+  "settings": {
+    "errorWorkflow": "",
+    "saveManualExecutions": true,
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": ["drip-engine"],
+  "meta": {
+    "instanceId": "drip-engine-local"
+  }
+}
