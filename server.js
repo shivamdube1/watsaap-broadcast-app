@@ -350,16 +350,32 @@ async function connectToWhatsApp() {
         const upsertContact = (id, data) => {
             if (!id) return;
             const existing = contactsMap.get(id) || {};
-            // Prefer name from contact list, then chat subject/name
+
+            // Pick best available name — never overwrite a real name with undefined/empty
+            const bestName = (
+                data.name          ||  // contact list name (most reliable)
+                data.notify        ||  // push name (what they set on their phone)
+                data.verifiedName  ||  // business verified name
+                existing.name      ||  // keep whatever we had before
+                existing.notify    ||
+                existing.verifiedName ||
+                data.pushName      ||
+                existing.pushName  ||
+                data.subject       ||  // group subject
+                existing.subject   ||
+                null                   // null = fall back to phone number in loadContacts
+            );
+
             const merged = {
                 ...existing,
                 ...data,
-                id: id,
-                name: data.name || existing.name || data.pushName || existing.pushName || data.verifiedName || existing.verifiedName || data.subject || existing.subject
+                id,
+                name: bestName   // Always set resolved name, not the raw data.name which may be undefined
             };
             contactsMap.set(id, merged);
             isContactsDirty = true;
         };
+
 
         sock.ev.on('messaging-history.set', ({ chats, contacts, messages, isLatest }) => {
             console.log(`[WA] History Sync: ${chats?.length || 0} chats, ${contacts?.length || 0} contacts (Latest: ${isLatest})`);
@@ -427,29 +443,42 @@ async function loadContacts() {
             if (contactsMap.size > 0) {
                 const contactsArray = Array.from(contactsMap.values());
                 contactList = contactsArray
-                    .filter(c => c && (c.jid || c.id)) 
+                    .filter(c => c && (c.jid || c.id))
                     .map(c => {
                         const jid = c.jid || c.id;
-                        const name = c.name || c.pushName || c.verifiedName || c.subject || (jid.endsWith('@broadcast') ? 'Broadcast List' : (jid.split('@')[0]));
+                        const phoneNum = jid.replace('@s.whatsapp.net', '').replace('@c.us', '').replace('@broadcast', '');
+                        // Resolve best name — notify is Baileys' field for push name
+                        const name = c.name || c.notify || c.pushName || c.verifiedName || c.subject ||
+                            (jid.endsWith('@broadcast') ? 'Broadcast List' : phoneNum);
                         return {
-                            jid: jid,
-                            name: name,
-                            number: jid.endsWith('@broadcast') ? 'Broadcast Group' : (jid.replace('@s.whatsapp.net', '').replace('@c.us', '') || '')
+                            jid,
+                            name,
+                            number: jid.endsWith('@broadcast') ? 'Broadcast Group' : phoneNum,
+                            hasName: !!(c.name || c.notify || c.pushName || c.verifiedName || c.subject)
                         };
                     });
 
-                const uniqueContacts = [];
+                // Deduplicate
                 const seen = new Set();
+                const uniqueContacts = [];
                 for (const c of contactList) {
                     if (!seen.has(c.jid)) {
                         seen.add(c.jid);
                         uniqueContacts.push(c);
                     }
                 }
-                contactList = uniqueContacts;
 
+                // Sort: named contacts first, then phone-only, both alphabetically
+                uniqueContacts.sort((a, b) => {
+                    if (a.hasName && !b.hasName) return -1;
+                    if (!a.hasName && b.hasName) return 1;
+                    return a.name.localeCompare(b.name);
+                });
+
+                contactList = uniqueContacts;
                 io.emit('contacts', contactList);
-                console.log(`[Contacts] Broadcasted ${contactList.length} unique contacts`);
+                console.log(`[Contacts] Broadcasted ${contactList.length} contacts (${contactList.filter(c=>c.hasName).length} named)`);
+
             }
         } catch (err) {
             console.error('Could not load contacts:', err.message);
