@@ -25,7 +25,7 @@ const CACHE_TTL = 30000; // 30 seconds
 
 // ── HELPERS ─────────────────────────────────────────────────────
 async function fetchWithAuth(url, options = {}) {
-    const apiKey = sessionStorage.getItem('broadcast_api_key');
+    const apiKey = localStorage.getItem('broadcast_api_key');
     const headers = {
         'Content-Type': 'application/json',
         ...(apiKey ? { 'x-api-key': apiKey } : {}),
@@ -42,7 +42,7 @@ async function fetchWithAuth(url, options = {}) {
 
 // ── INITIALIZATION ──────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
-    const apiKey = sessionStorage.getItem('broadcast_api_key');
+    const apiKey = localStorage.getItem('broadcast_api_key');
     if (apiKey) {
         document.getElementById('loginOverlay').style.opacity = '0';
         setTimeout(() => document.getElementById('loginOverlay').style.display = 'none', 500);
@@ -78,7 +78,7 @@ async function handleLogin() {
         
         if (res.ok) {
             const data = await res.json();
-            sessionStorage.setItem('broadcast_api_key', data.apiKey);
+            localStorage.setItem('broadcast_api_key', data.apiKey);
             document.getElementById('loginOverlay').style.opacity = '0';
             setTimeout(() => document.getElementById('loginOverlay').style.display = 'none', 500);
             refreshData();
@@ -101,7 +101,7 @@ async function handleLogout() {
     try {
         await fetchWithAuth('/api/logout', { method: 'POST' });
     } catch (e) {}
-    sessionStorage.removeItem('broadcast_api_key');
+    localStorage.removeItem('broadcast_api_key');
     window.location.reload();
 }
 
@@ -649,7 +649,7 @@ async function startBroadcast() {
     if (state.selectedFile) formData.append('media', state.selectedFile);
 
     try {
-        const apiKey = sessionStorage.getItem('broadcast_api_key');
+        const apiKey = localStorage.getItem('broadcast_api_key');
         const res = await fetch('/api/send/bulk', { 
             method: 'POST', 
             body: formData,

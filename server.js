@@ -489,20 +489,8 @@ async function sendMessage(jid, message, mediaPath = null) {
             response = await sock.sendMessage(cleanJid, { text: message });
         }
         console.log(`Message sent successfully: ${response.key.id}`);
-        
-        // Cleanup media after successful send if it's a temp upload
-        if (mediaPath && mediaPath.includes('uploads')) {
-            fs.unlink(mediaPath, (unlinkErr) => {
-                if (unlinkErr) console.error(`[Cleanup] Failed to remove ${mediaPath}:`, unlinkErr);
-                else console.log(`[Cleanup] Successfully removed ${mediaPath}`);
-            });
-        }
-
         return { success: true, jid: cleanJid, messageId: response.key.id };
     } catch (err) {
-    if (mediaPath && fs.existsSync(mediaPath)) {
-        fs.unlink(mediaPath, () => {}); // cleanup on error too
-    }
         console.log(`Failed to send to ${jid}:`, err.message);
         return { success: false, jid, error: err.message };
     }
