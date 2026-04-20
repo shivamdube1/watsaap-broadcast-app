@@ -586,6 +586,19 @@ app.get('/api/contacts', (req, res) => {
     res.json({ success: true, items: contactList });
 });
 
+// Lightweight sync trigger — called by the Sync button in the UI
+app.post('/api/contacts/sync', (req, res) => {
+    if (contactsMap.size > 0) {
+        loadContacts(); // triggers the debounced reload + socket emit
+        res.json({ success: true, count: contactsMap.size, message: `Syncing ${contactsMap.size} contacts...` });
+    } else if (sock && connectionStatus === 'connected') {
+        res.json({ success: true, count: 0, message: 'WhatsApp is still syncing. Please wait a moment.' });
+    } else {
+        res.json({ success: false, message: 'WhatsApp not connected. Please scan QR first.' });
+    }
+});
+
+
 app.post('/api/contacts', (req, res) => {
     const { name, phone } = req.body;
     if (!name || !phone) return res.status(400).json({ error: 'Name and phone are required' });

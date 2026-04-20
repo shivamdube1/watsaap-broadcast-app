@@ -142,15 +142,18 @@ async function refreshData() {
         updateStatusDisplay(status.status);
 
         const contactsData = await contactsRes.json();
-        // Backend now returns jid, name, number directly
-        state.contacts = Array.isArray(contactsData.items) ? contactsData.items.filter(c => {
-            if (!c.jid) return false;
-            // Filter out broadcasts, but allow groups if they are in the contacts list (or keep it strictly to people)
-            return !c.jid.includes('@broadcast');
-        }) : [];
-
-        document.getElementById('statContacts').textContent = state.contacts.length;
-        renderContacts();
+        // Backend returns { success, items: [...] }
+        if (Array.isArray(contactsData.items) && contactsData.items.length > 0) {
+            state.contacts = contactsData.items.filter(c =>
+                c && c.jid &&
+                !c.jid.includes('@broadcast') &&
+                !c.jid.endsWith('@g.us')
+            );
+            const statEl = document.getElementById('statContacts');
+            if (statEl) statEl.textContent = state.contacts.length;
+            renderContacts();
+        }
+        // If empty (WA still syncing), the socket 'contacts' event will populate later
         updateLastSynced();
     } catch (e) {
         console.warn('Refresh failed:', e);
@@ -295,6 +298,41 @@ function updateLastSynced() {
     label.style.display = 'block';
 }
 
+function showToast(message, type = 'info') {
+    // Remove any existing toast
+    const old = document.getElementById('appToast');
+    if (old) old.remove();
+
+    const toast = document.createElement('div');
+    toast.id = 'appToast';
+    toast.style.cssText = `
+        position: fixed; bottom: calc(70px + env(safe-area-inset-bottom, 0px)); left: 50%;
+        transform: translateX(-50%) translateY(20px);
+        background: #1e2e40; border: 1px solid #243447;
+        border-left: 4px solid ${type === 'success' ? '#25D366' : type === 'error' ? '#DC3545' : '#00BCD4'};
+        color: #e9edef; border-radius: 10px; padding: 12px 20px;
+        font-size: 14px; font-family: inherit;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.4); z-index: 9999;
+        opacity: 0; transition: all .3s; white-space: nowrap; max-width: 90vw;
+    `;
+    toast.textContent = message;
+    document.body.appendChild(toast);
+
+    // Animate in
+    requestAnimationFrame(() => {
+        toast.style.opacity = '1';
+        toast.style.transform = 'translateX(-50%) translateY(0)';
+    });
+
+    // Auto-dismiss after 3s
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateX(-50%) translateY(20px)';
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
+}
+
+
 function renderGroups() {
     const waList    = document.getElementById('waGroupsList');
     const customList = document.getElementById('customGroupsList');
@@ -437,23 +475,31 @@ async function deepSyncContacts() {
 }
 
 async function importWhatsAppContacts() {
+    const btn = event.currentTarget || event.target;
+    const originalHTML = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Syncing...';
+    btn.disabled = true;
+
     try {
-        const btn = event.currentTarget || event.target;
-        const originalHTML = btn.innerHTML;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Syncing...';
-        btn.disabled = true;
-        
-        const res = await fetchWithAuth('/api/contacts/import', { method: 'POST' });
+        const res = await fetchWithAuth('/api/contacts/sync', { method: 'POST' });
         const data = await res.json();
-        alert(data.message || 'Contacts sync triggered. Please wait a few moments.');
-        await refreshData();
-        
+
+        if (data.success) {
+            showToast(data.message || 'Sync triggered — contacts loading via socket...', 'success');
+            // Contacts will arrive via socket 'contacts' event automatically
+            // Also refresh immediately in case server already has them
+            setTimeout(() => refreshData(), 2500);
+        } else {
+            showToast(data.message || 'Sync failed', 'error');
+        }
+    } catch (e) {
+        showToast('Sync failed: ' + e.message, 'error');
+    } finally {
         btn.innerHTML = originalHTML;
         btn.disabled = false;
-    } catch (e) {
-        alert('Sync failed');
     }
 }
+
 
 async function saveAsCustomGroup() {
     const individualContacts = state.selectedRecipients.filter(r => r.type === 'contact' || r.type === 'custom-manual');
@@ -729,10 +775,18 @@ socket.on('sending-progress', (data) => {
 });
 
 socket.on('contacts', (contacts) => {
+    if (!Array.isArray(contacts)) return;
     console.log('[Socket] Received', contacts.length, 'contacts');
-    state.contacts = contacts.filter(c => !c.jid.includes('@broadcast'));
-    document.getElementById('statContacts').textContent = state.contacts.length;
+    // Guard: filter only valid entries with a jid, skip @broadcast and @g.us
+    state.contacts = contacts.filter(c =>
+        c && c.jid &&
+        !c.jid.includes('@broadcast') &&
+        !c.jid.endsWith('@g.us')
+    );
+    const statEl = document.getElementById('statContacts');
+    if (statEl) statEl.textContent = state.contacts.length;
     renderContacts();
+    updateLastSynced();
 });
 
 socket.on('sync-progress', (data) => {
