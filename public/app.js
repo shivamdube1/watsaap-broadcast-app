@@ -455,25 +455,34 @@ async function deepSyncContacts() {
     const originalHTML = btn.innerHTML;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Syncing...';
     btn.disabled = true;
-    
-    try {
-        // Ensure loading state is visible for at least 1s
-        const [res] = await Promise.all([
-            fetchWithAuth('/api/contacts/force-sync', { method: 'POST' }),
-            new Promise(resolve => setTimeout(resolve, 1000))
-        ]);
 
+    // Navigate to contacts tab so user sees the progress banner
+    const contactsNavEl = document.querySelector('.nav-item[onclick*="contacts"]') ||
+        document.getElementById('mnav-contacts');
+    if (contactsNavEl) showSection('contacts', contactsNavEl);
+
+    // Show immediate progress banner (server will update via socket)
+    showSyncProgress(0, 0, 'start');
+
+    try {
+        const res = await fetchWithAuth('/api/contacts/force-sync', { method: 'POST' });
         const data = await res.json();
-        
+
         if (data.success) {
-            alert(data.message || 'Deep sync triggered. Contacts will populate gradually.');
-            await refreshData();
+            // Update banner with total now that we know it
+            if (data.total > 0) {
+                showSyncProgress(0, data.total, 'loading');
+            }
+            showToast(data.message || 'Sync started — watch the progress bar', 'success');
+            // Contacts arrive via 'contacts' socket event — no manual refresh needed
         } else {
-            alert(data.error || 'Failed to trigger deep sync');
+            hideSyncProgress();
+            showToast(data.error || 'Failed to trigger sync', 'error');
         }
     } catch (e) {
         console.error('Deep sync error:', e);
-        alert('Deep sync failed: ' + e.message);
+        hideSyncProgress();
+        showToast('Deep sync failed: ' + e.message, 'error');
     } finally {
         btn.innerHTML = originalHTML;
         btn.disabled = false;
@@ -811,6 +820,84 @@ socket.on('sync-progress', (data) => {
         btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Syncing (${data.progress}%)...`;
     }
 });
+
+// ── CONTACT SYNC PROGRESS ─────────────────────────────────────
+socket.on('contact-sync-progress', (data) => {
+    const { loaded, total, phase, savedCount } = data;
+
+    if (phase === 'done') {
+        hideSyncProgress();
+        const statEl = document.getElementById('statContacts');
+        if (statEl) statEl.textContent = loaded;
+        if (savedCount !== undefined) {
+            showToast(`✅ ${loaded} contacts loaded (${savedCount} saved in phonebook)`, 'success');
+        }
+        return;
+    }
+
+    // Show/update the progress banner
+    showSyncProgress(loaded, total, phase);
+
+    // Also update the stat counter live
+    const statEl = document.getElementById('statContacts');
+    if (statEl && total > 0) statEl.textContent = loaded;
+});
+
+function showSyncProgress(loaded, total, phase) {
+    let banner = document.getElementById('contactSyncBanner');
+    if (!banner) {
+        banner = document.createElement('div');
+        banner.id = 'contactSyncBanner';
+        banner.style.cssText = `
+            position: sticky; top: 0; z-index: 100;
+            background: linear-gradient(135deg, #1a2e3d, #1e3a4a);
+            border-bottom: 2px solid var(--primary);
+            padding: 12px 16px; margin: 0 -16px 8px;
+        `;
+        banner.innerHTML = `
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                <span style="font-size:13px;font-weight:600;color:var(--primary);">
+                    <i class="fas fa-sync fa-spin" style="margin-right:6px;"></i>
+                    <span id="syncBannerTitle">Loading contacts...</span>
+                </span>
+                <span id="syncBannerCount" style="font-size:13px;font-weight:700;color:#e9edef;">0 / 0</span>
+            </div>
+            <div style="background:rgba(255,255,255,.1);border-radius:8px;height:6px;overflow:hidden;">
+                <div id="syncBannerFill" style="height:100%;width:0%;background:var(--primary);border-radius:8px;transition:width .3s;"></div>
+            </div>
+            <div id="syncBannerSub" style="font-size:11px;color:var(--text-dim);margin-top:5px;">Processing WhatsApp history...</div>
+        `;
+
+        // Inject into the contacts list container
+        const container = document.getElementById('contactsListItems');
+        if (container) container.parentNode.insertBefore(banner, container);
+    }
+
+    const pct = total > 0 ? Math.round((loaded / total) * 100) : 0;
+    const countEl = document.getElementById('syncBannerCount');
+    const fillEl  = document.getElementById('syncBannerFill');
+    const subEl   = document.getElementById('syncBannerSub');
+    const titleEl = document.getElementById('syncBannerTitle');
+
+    if (countEl) countEl.textContent = `${loaded.toLocaleString()} / ${total.toLocaleString()}`;
+    if (fillEl)  fillEl.style.width = pct + '%';
+    if (subEl)   subEl.textContent = phase === 'start'
+        ? 'Receiving data from WhatsApp...'
+        : `Processing: ${pct}% — ${loaded.toLocaleString()} contacts processed`;
+    if (titleEl) titleEl.textContent = phase === 'start' ? 'Starting sync...' : 'Loading contacts...';
+}
+
+function hideSyncProgress() {
+    const banner = document.getElementById('contactSyncBanner');
+    if (banner) {
+        // Animate out
+        banner.style.transition = 'opacity .5s, max-height .5s';
+        banner.style.opacity = '0';
+        banner.style.maxHeight = '0';
+        banner.style.overflow = 'hidden';
+        setTimeout(() => banner.remove(), 500);
+    }
+}
 
 function filterList(inputId, listId) {
     const query = event.target.value.toLowerCase();

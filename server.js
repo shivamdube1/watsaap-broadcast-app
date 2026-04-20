@@ -375,10 +375,29 @@ async function connectToWhatsApp() {
 
 
         sock.ev.on('messaging-history.set', ({ chats, contacts, messages, isLatest }) => {
+            const totalContacts = (contacts?.length || 0) + (chats?.length || 0);
             console.log(`[WA] History Sync: ${chats?.length || 0} chats, ${contacts?.length || 0} contacts (Latest: ${isLatest})`);
             isHistorySyncing = !isLatest;
-            if (contacts) contacts.forEach(c => upsertContact(c.id, c));
-            if (chats) chats.forEach(c => upsertContact(c.id, c));
+
+            // Emit progress start so UI can show loading state
+            io.emit('contact-sync-progress', { loaded: 0, total: totalContacts, phase: 'start' });
+
+            let processed = 0;
+            const emitProgress = () => {
+                processed++;
+                if (processed % 100 === 0 || processed === totalContacts) {
+                    io.emit('contact-sync-progress', {
+                        loaded: processed,
+                        total: totalContacts,
+                        mapSize: contactsMap.size,
+                        phase: 'loading'
+                    });
+                }
+            };
+
+            if (contacts) contacts.forEach(c => { upsertContact(c.id, c); emitProgress(); });
+            if (chats)    chats.forEach(c    => { upsertContact(c.id, c);    emitProgress(); });
+
             loadContacts();
         });
 
@@ -432,20 +451,23 @@ async function connectToWhatsApp() {
 
 let loadContactsTimeout = null;
 async function loadContacts() {
-    // Debounce contact loading to prevent high-frequency Socket.io broadcasts
+    // Short debounce to batch rapid-fire events without blocking UI
     if (loadContactsTimeout) clearTimeout(loadContactsTimeout);
-    
+
     loadContactsTimeout = setTimeout(async () => {
         try {
             if (contactsMap.size > 0) {
                 const contactsArray = Array.from(contactsMap.values());
+
+                let processed = 0;
+                const total = contactsArray.length;
+
                 contactList = contactsArray
                     .filter(c => {
                         if (!c || !(c.jid || c.id)) return false;
                         const jid = c.jid || c.id;
-                        // Skip system JIDs
                         if (jid.endsWith('@broadcast')) return false;
-                        if (jid.endsWith('@g.us')) return false;  // WA groups go to waGroups
+                        if (jid.endsWith('@g.us'))     return false;
                         if (jid === 'status@broadcast') return false;
                         return true;
                     })
@@ -454,17 +476,13 @@ async function loadContacts() {
                         const phoneNum = jid
                             .replace('@s.whatsapp.net', '')
                             .replace('@c.us', '');
-
-                        // ONLY use phonebook name (savedName / c.name).
-                        // Do NOT use notify or pushName — those are the contact's
-                        // own WhatsApp display name, not what the user saved.
                         const phonebookName = c.savedName || c.name || null;
-
+                        processed++;
                         return {
                             jid,
-                            name: phonebookName || phoneNum,  // fall back to number if not in phonebook
+                            name: phonebookName || phoneNum,
                             number: phoneNum,
-                            savedInContacts: !!phonebookName  // true = user saved this number
+                            savedInContacts: !!phonebookName
                         };
                     });
 
@@ -478,7 +496,7 @@ async function loadContacts() {
                     }
                 }
 
-                // Sort: phonebook contacts first (A-Z), then unsaved numbers (numeric)
+                // Sort: phonebook contacts first (A-Z), then unsaved numbers
                 uniqueContacts.sort((a, b) => {
                     if (a.savedInContacts && !b.savedInContacts) return -1;
                     if (!a.savedInContacts && b.savedInContacts) return 1;
@@ -486,16 +504,24 @@ async function loadContacts() {
                 });
 
                 contactList = uniqueContacts;
-                io.emit('contacts', contactList);
-
                 const savedCount = contactList.filter(c => c.savedInContacts).length;
+
+                // Emit final contacts list + done progress event
+                io.emit('contacts', contactList);
+                io.emit('contact-sync-progress', {
+                    loaded: contactList.length,
+                    total: contactList.length,
+                    savedCount,
+                    phase: 'done'
+                });
+
                 console.log(`[Contacts] ${contactList.length} contacts (${savedCount} saved in phonebook, ${contactList.length - savedCount} unsaved)`);
             }
         } catch (err) {
             console.error('Could not load contacts:', err.message);
             io.emit('error', { message: 'Failed to refresh contact list. Please try manual reload.' });
         }
-    }, 2000); // 2s debounce
+    }, 500); // 500ms debounce (was 2s — too slow for UI feedback)
 }
 
 function randomDelay(min, max) {
@@ -640,26 +666,29 @@ app.post('/api/contacts/force-sync', async (req, res) => {
     }
 
     console.log('[WA] Force Sync requested...');
-    
-    // We can't really "fetch all contacts" from a single Baileys call,
-    // but we can ensure everything in contactsMap is broadcasted
-    // and potentially trigger metadata updates for those without names.
-    
+
     try {
-        // Broadcast what we have immediately
-        loadContacts();
-        
-        // Small subset of contacts to check for status/existence to trigger metadata events
-        const contacts = Array.from(contactsMap.keys()).slice(0, 50); // limit to avoid rate limiting
-        if (contacts.length > 0) {
-            console.log(`[WA] Re-pinging metadata for ${contacts.length} contacts...`);
-            // Intentionally silent - Baileys events will trigger upserts if details change
-            await sock.onWhatsApp(...contacts).catch(() => {});
+        const mapSize = contactsMap.size;
+
+        // Emit what we have immediately — don't wait for debounce
+        if (mapSize > 0) {
+            io.emit('contact-sync-progress', { loaded: 0, total: mapSize, phase: 'start' });
+            loadContacts(); // will emit 'contacts' + 'contact-sync-progress done' when ready
         }
 
-        res.json({ 
-            success: true, 
-            message: 'Deep sync initiated. Contacts will populate as they arrive from WhatsApp.' 
+        // Ping a small sample to re-trigger Baileys metadata events for contacts without names
+        const jids = Array.from(contactsMap.keys()).filter(j => j.endsWith('@s.whatsapp.net')).slice(0, 50);
+        if (jids.length > 0) {
+            console.log(`[WA] Re-pinging metadata for ${jids.length} contacts...`);
+            await sock.onWhatsApp(...jids).catch(() => {});
+        }
+
+        res.json({
+            success: true,
+            total: mapSize,
+            message: mapSize > 0
+                ? `Loading ${mapSize} contacts — watch the progress bar.`
+                : 'WhatsApp is still syncing history. Wait a moment and try again.'
         });
     } catch (err) {
         console.error('[WA] Force Sync error:', err);
