@@ -374,16 +374,22 @@ function renderGroups() {
                 const color = getAvatarColor(g.name);
                 const initials = getInitials(g.name);
                 const sel = isRecipient(g.name);
+                const safeName = g.name.replace(/'/g, "\\'");
+                // Support {jid,name} objects and legacy string JIDs
+                const memberCount = g.members.length;
+                const memberPreview = g.members.slice(0, 3).map(m =>
+                    typeof m === 'string' ? m.split('@')[0] : (m.name || m.jid.split('@')[0])
+                ).join(', ') + (memberCount > 3 ? ` +${memberCount - 3}` : '');
                 return `
-                <div class="item-row ${sel ? 'selected' : ''}" onclick="toggleRecipient('${g.name}', '${g.name.replace(/'/g,"\\'")}', 'custom')">
+                <div class="item-row ${sel ? 'selected' : ''}" onclick="toggleRecipient('${safeName}', '${safeName}', 'custom')">
                     <div class="avatar-circle" style="background:${color};">${initials}</div>
                     <div class="item-info">
                         <h4>${g.name}</h4>
-                        <p><i class="fas fa-user" style="margin-right:4px;"></i>${g.members.length} members</p>
+                        <p><i class="fas fa-users" style="margin-right:4px;"></i>${memberCount} members &nbsp;·&nbsp; <span style="opacity:.7;">${memberPreview}</span></p>
                     </div>
                     <div style="margin-left:auto;display:flex;gap:14px;align-items:center;flex-shrink:0;">
-                        <button style="background:none;border:none;cursor:pointer;color:var(--primary);font-size:16px;padding:6px;" onclick="event.stopPropagation();editCustomGroup('${g.name}')" title="Edit"><i class="fas fa-edit"></i></button>
-                        <button style="background:none;border:none;cursor:pointer;color:var(--danger);font-size:16px;padding:6px;" onclick="event.stopPropagation();deleteCustomGroup('${g.name}')" title="Delete"><i class="fas fa-trash"></i></button>
+                        <button style="background:none;border:none;cursor:pointer;color:var(--primary);font-size:16px;padding:6px;" onclick="event.stopPropagation();editCustomGroup('${safeName}')" title="Edit"><i class="fas fa-edit"></i></button>
+                        <button style="background:none;border:none;cursor:pointer;color:var(--danger);font-size:16px;padding:6px;" onclick="event.stopPropagation();deleteCustomGroup('${safeName}')" title="Delete"><i class="fas fa-trash"></i></button>
                         <i class="fas ${sel ? 'fa-check-circle' : 'fa-circle'}" style="font-size:18px;color:${sel ? 'var(--primary)' : 'rgba(255,255,255,.2)'}"></i>
                     </div>
                 </div>`;
@@ -503,44 +509,52 @@ async function importWhatsAppContacts() {
 
 async function saveAsCustomGroup() {
     const individualContacts = state.selectedRecipients.filter(r => r.type === 'contact' || r.type === 'custom-manual');
-    const jids = individualContacts.map(r => r.jid);
-    
-    if (jids.length === 0) {
-        alert('Please select some contacts from the list first.');
+
+    if (individualContacts.length === 0) {
+        showToast('Please select some contacts first.', 'error');
         return;
     }
 
     const defaultName = state.editingGroup || '';
-    const name = prompt(state.editingGroup ? `Update group members? You can also rename it:` : 'Enter a name for this custom group:', defaultName);
-    
-    if (!name) return;
+    const name = prompt(state.editingGroup
+        ? 'Update group — you can also rename it:'
+        : 'Enter a name for this group:', defaultName);
+
+    if (!name || !name.trim()) return;
+
+    // Send {jid, name} objects so names are saved in groups.json
+    const members = individualContacts.map(r => ({ jid: r.jid, name: r.name }));
 
     try {
-        const payload = { 
-            name, 
-            members: jids,
-            oldName: state.editingGroup 
-        };
-
+        const payload = { name: name.trim(), members, oldName: state.editingGroup };
         const res = await fetchWithAuth('/api/groups', {
             method: 'POST',
             body: JSON.stringify(payload)
         });
 
         if (res.ok) {
-            alert(state.editingGroup ? 'Group updated successfully!' : 'Group saved successfully!');
+            const data = await res.json();
+            showToast(
+                state.editingGroup
+                    ? `"${name}" updated (${members.length} members)`
+                    : `"${name}" saved with ${members.length} members`,
+                'success'
+            );
             state.editingGroup = null;
-            state.selectedRecipients = []; // Clear selection after saving
+            state.selectedRecipients = [];
             updateSelectionUI();
-            refreshGroups(true);
-            showSection('groups', document.querySelector('[onclick*="groups"]'));
+            await refreshGroups(true);
+            // Navigate to groups tab
+            const groupsNavEl = document.querySelector('.nav-item[onclick*="groups"]') ||
+                document.getElementById('mnav-groups');
+            showSection('groups', groupsNavEl || document.createElement('div'));
         } else {
             const data = await res.json();
-            alert('Failed to save group: ' + (data.error || 'Unknown error'));
+            showToast('Failed to save: ' + (data.error || 'Unknown error'), 'error');
         }
     } catch (e) {
         console.error('Failed to save group:', e);
-        alert('Error saving group');
+        showToast('Error saving group: ' + e.message, 'error');
     }
 }
 
@@ -548,20 +562,20 @@ function editCustomGroup(name) {
     const group = state.customGroups.find(g => g.name === name);
     if (!group) return;
 
-    // Load group members into selection
-    // Note: members in customGroups are just JIDs. We need to find their names in state.contacts if possible.
-    state.selectedRecipients = group.members.map(jid => {
-        const contact = state.contacts.find(c => c.jid === jid);
-        return {
-            jid,
-            name: contact ? contact.name : jid.split('@')[0],
-            type: 'contact'
-        };
+    // Load member names from the saved group data directly
+    // (no need to look up state.contacts — names are persisted in groups.json)
+    state.selectedRecipients = group.members.map(m => {
+        // Support both new {jid,name} format and legacy string format
+        const jid = typeof m === 'string' ? m : m.jid;
+        const savedName = typeof m === 'string'
+            ? (state.contacts.find(c => c.jid === m)?.name || m.split('@')[0])
+            : (m.name || m.jid.split('@')[0]);
+        return { jid, name: savedName, type: 'contact' };
     });
 
     state.editingGroup = name;
     updateSelectionUI();
-    showSection('contacts', document.querySelector('[onclick*="contacts"]'));
+    showSection('contacts', document.querySelector('[onclick*="contacts"]') || document.createElement('div'));
     renderContacts();
 }
 
@@ -680,14 +694,16 @@ async function startBroadcast() {
     let finalRecipients = [];
     state.selectedRecipients.forEach(r => {
         if (r.type === 'custom') {
+            // Find group — members may be {jid,name} objects or legacy string JIDs
             const group = state.customGroups.find(g => g.name === r.jid);
             if (group) {
-                group.members.forEach(memberJid => {
-                    const contact = state.contacts.find(c => c.jid === memberJid);
-                    finalRecipients.push({ 
-                        jid: memberJid, 
-                        name: contact ? contact.name : memberJid 
-                    });
+                group.members.forEach(m => {
+                    const jid = typeof m === 'string' ? m : m.jid;
+                    // Use name from group data (persisted) — don't need contactsMap
+                    const name = typeof m === 'string'
+                        ? (state.contacts.find(c => c.jid === m)?.name || m.split('@')[0])
+                        : (m.name || m.jid.split('@')[0]);
+                    finalRecipients.push({ jid, name });
                 });
             }
         } else {

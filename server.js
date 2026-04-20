@@ -705,29 +705,41 @@ app.post('/api/groups', async (req, res) => {
         return res.status(400).json({ error: 'Name and members array required' });
     }
 
-    // Strict validation for members
-    if (!members.every(m => typeof m === 'string' && (m.endsWith('@s.whatsapp.net') || m.endsWith('@g.us')))) {
-        return res.status(400).json({ error: 'All members must be valid WhatsApp JIDs (strings)' });
+    // Accept members as either:
+    //   [{jid, name}, ...] — new format with saved names
+    //   ["jid@s.whatsapp.net", ...] — legacy format (JID strings only)
+    const normalizedMembers = members
+        .map(m => {
+            if (typeof m === 'string') {
+                // Legacy: plain JID string — try to resolve name from contactList
+                const found = contactList.find(c => c.jid === m);
+                return { jid: m, name: found ? found.name : m.split('@')[0] };
+            }
+            if (m && typeof m === 'object' && m.jid) {
+                return { jid: m.jid, name: m.name || m.jid.split('@')[0] };
+            }
+            return null;
+        })
+        .filter(m => m && m.jid && m.jid.includes('@'));
+
+    if (normalizedMembers.length === 0) {
+        return res.status(400).json({ error: 'At least one valid member required' });
     }
 
-    const validMembers = members.filter(m => m && m.includes('@'));
-    if (validMembers.length === 0) {
-        return res.status(400).json({ error: 'At least one valid member JID required' });
-    }
-
-    // Handle Rename: If oldName is provided and different, delete old entry first
+    // Handle rename: delete old entry if name changed
     if (oldName && oldName !== name) {
         customGroups = customGroups.filter(g => g.name !== oldName);
     }
 
     const index = customGroups.findIndex(g => g.name === name);
+    const groupData = { name, members: normalizedMembers, updatedAt: new Date().toISOString() };
     if (index >= 0) {
-        customGroups[index].members = validMembers;
+        customGroups[index] = groupData;
     } else {
-        customGroups.push({ name, members: validMembers });
+        customGroups.push(groupData);
     }
     await saveGroups();
-    res.json({ success: true, group: customGroups[index >= 0 ? index : customGroups.length - 1] });
+    res.json({ success: true, group: groupData });
 });
 
 app.delete('/api/groups/:name', async (req, res) => {
