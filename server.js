@@ -351,26 +351,23 @@ async function connectToWhatsApp() {
             if (!id) return;
             const existing = contactsMap.get(id) || {};
 
-            // Pick best available name — never overwrite a real name with undefined/empty
-            const bestName = (
-                data.name          ||  // contact list name (most reliable)
-                data.notify        ||  // push name (what they set on their phone)
-                data.verifiedName  ||  // business verified name
-                existing.name      ||  // keep whatever we had before
-                existing.notify    ||
-                existing.verifiedName ||
-                data.pushName      ||
-                existing.pushName  ||
-                data.subject       ||  // group subject
-                existing.subject   ||
-                null                   // null = fall back to phone number in loadContacts
-            );
+            // Separate phonebook name from WhatsApp push name:
+            // - savedName = name saved in user's phone contacts (c.name from Baileys)
+            //   This is what the user typed when saving the number.
+            // - storedPushName = the name the contact set on their own WhatsApp profile
+            //
+            // Never overwrite a real savedName with undefined from a later chats.set event.
+            const savedName = data.name || existing.savedName || null;
+            const storedPushName = data.notify || data.pushName || existing.storedPushName || null;
 
             const merged = {
                 ...existing,
                 ...data,
                 id,
-                name: bestName   // Always set resolved name, not the raw data.name which may be undefined
+                savedName,       // phone-book name (user's saved name)
+                storedPushName,  // contact's own WhatsApp display name
+                // Keep name field as savedName so existing code still works
+                name: savedName
             };
             contactsMap.set(id, merged);
             isContactsDirty = true;
@@ -443,22 +440,35 @@ async function loadContacts() {
             if (contactsMap.size > 0) {
                 const contactsArray = Array.from(contactsMap.values());
                 contactList = contactsArray
-                    .filter(c => c && (c.jid || c.id))
+                    .filter(c => {
+                        if (!c || !(c.jid || c.id)) return false;
+                        const jid = c.jid || c.id;
+                        // Skip system JIDs
+                        if (jid.endsWith('@broadcast')) return false;
+                        if (jid.endsWith('@g.us')) return false;  // WA groups go to waGroups
+                        if (jid === 'status@broadcast') return false;
+                        return true;
+                    })
                     .map(c => {
                         const jid = c.jid || c.id;
-                        const phoneNum = jid.replace('@s.whatsapp.net', '').replace('@c.us', '').replace('@broadcast', '');
-                        // Resolve best name — notify is Baileys' field for push name
-                        const name = c.name || c.notify || c.pushName || c.verifiedName || c.subject ||
-                            (jid.endsWith('@broadcast') ? 'Broadcast List' : phoneNum);
+                        const phoneNum = jid
+                            .replace('@s.whatsapp.net', '')
+                            .replace('@c.us', '');
+
+                        // ONLY use phonebook name (savedName / c.name).
+                        // Do NOT use notify or pushName — those are the contact's
+                        // own WhatsApp display name, not what the user saved.
+                        const phonebookName = c.savedName || c.name || null;
+
                         return {
                             jid,
-                            name,
-                            number: jid.endsWith('@broadcast') ? 'Broadcast Group' : phoneNum,
-                            hasName: !!(c.name || c.notify || c.pushName || c.verifiedName || c.subject)
+                            name: phonebookName || phoneNum,  // fall back to number if not in phonebook
+                            number: phoneNum,
+                            savedInContacts: !!phonebookName  // true = user saved this number
                         };
                     });
 
-                // Deduplicate
+                // Deduplicate by JID
                 const seen = new Set();
                 const uniqueContacts = [];
                 for (const c of contactList) {
@@ -468,17 +478,18 @@ async function loadContacts() {
                     }
                 }
 
-                // Sort: named contacts first, then phone-only, both alphabetically
+                // Sort: phonebook contacts first (A-Z), then unsaved numbers (numeric)
                 uniqueContacts.sort((a, b) => {
-                    if (a.hasName && !b.hasName) return -1;
-                    if (!a.hasName && b.hasName) return 1;
+                    if (a.savedInContacts && !b.savedInContacts) return -1;
+                    if (!a.savedInContacts && b.savedInContacts) return 1;
                     return a.name.localeCompare(b.name);
                 });
 
                 contactList = uniqueContacts;
                 io.emit('contacts', contactList);
-                console.log(`[Contacts] Broadcasted ${contactList.length} contacts (${contactList.filter(c=>c.hasName).length} named)`);
 
+                const savedCount = contactList.filter(c => c.savedInContacts).length;
+                console.log(`[Contacts] ${contactList.length} contacts (${savedCount} saved in phonebook, ${contactList.length - savedCount} unsaved)`);
             }
         } catch (err) {
             console.error('Could not load contacts:', err.message);

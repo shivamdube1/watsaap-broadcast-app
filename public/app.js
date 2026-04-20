@@ -257,21 +257,34 @@ function renderContacts() {
         return;
     }
 
-    container.innerHTML = state.contacts.map(c => {
+    const savedCount = state.contacts.filter(c => c.savedInContacts).length;
+
+    // Summary header
+    const header = `<div style="font-size:12px;color:var(--text-dim);padding:4px 14px 8px;display:flex;justify-content:space-between;">
+        <span><i class="fas fa-address-book" style="margin-right:4px;color:var(--primary);"></i>${savedCount} saved</span>
+        <span>${state.contacts.length - savedCount} unsaved</span>
+    </div>`;
+
+    container.innerHTML = header + state.contacts.map(c => {
         const initials = getInitials(c.name);
         const color = getAvatarColor(c.jid || c.name);
         const selected = isRecipient(c.jid);
+        const safeName = c.name.replace(/'/g, "\\'");
+
+        // If not saved in phonebook, dim the name and add a small tag
+        const nameHtml = c.savedInContacts
+            ? `<h4>${c.name}</h4><p>${c.number}</p>`
+            : `<h4 style="color:var(--text-dim);font-weight:500;">${c.number}</h4><p style="font-size:11px;"><span style="background:rgba(255,255,255,.08);border-radius:4px;padding:1px 5px;">unsaved</span></p>`;
+
         return `
-        <div class="item-row ${selected ? 'selected' : ''}" onclick="toggleRecipient('${c.jid}', '${c.name.replace(/'/g,"\\'")}', 'contact')">
-            <div class="avatar-circle" style="background:${color};">${initials}</div>
-            <div class="item-info">
-                <h4>${c.name}</h4>
-                <p>${c.number}</p>
-            </div>
+        <div class="item-row ${selected ? 'selected' : ''}" onclick="toggleRecipient('${c.jid}', '${safeName}', 'contact')">
+            <div class="avatar-circle" style="background:${color};${!c.savedInContacts ? 'opacity:.6;' : ''}">${initials}</div>
+            <div class="item-info">${nameHtml}</div>
             <i class="fas ${selected ? 'fa-check-circle' : 'fa-circle'}" style="margin-left:auto;flex-shrink:0;font-size:18px;color:${selected ? 'var(--primary)' : 'rgba(255,255,255,.2)'}"></i>
         </div>`;
     }).join('');
 }
+
 
 function updateLastSynced() {
     const label = document.getElementById('lastSyncedLabel');
