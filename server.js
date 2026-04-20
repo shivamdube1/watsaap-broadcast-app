@@ -341,7 +341,13 @@ async function connectToWhatsApp() {
                 connectionStatus = 'connected';
                 qrCodeData = null;
                 io.emit('status', { status: 'connected', message: 'WhatsApp Connected!' });
+
+                // Load whatever is already in contactsMap immediately
                 loadContacts();
+
+                // Then enrich contactsMap from group participants (real @s.whatsapp.net JIDs)
+                // This is the most reliable source in the new @lid multi-device protocol
+                setTimeout(() => fetchContactsFromGroups(), 3000);
             }
         });
 
@@ -443,9 +449,59 @@ async function connectToWhatsApp() {
             }
         });
 
+        // Extract real phone-number JIDs from incoming messages
+        // (remoteJid is always @s.whatsapp.net even in new @lid protocol)
+        sock.ev.on('messages.upsert', ({ messages }) => {
+            for (const msg of messages) {
+                const jid = msg.key?.remoteJid;
+                if (!jid || jid.endsWith('@g.us') || jid.endsWith('@broadcast') || jid.endsWith('@lid')) continue;
+                if (!contactsMap.has(jid)) {
+                    const pushName = msg.pushName || null;
+                    upsertContact(jid, { id: jid, jid, name: null, notify: pushName });
+                }
+            }
+        });
+
     } catch (err) {
         console.error('Connection error:', err.message);
         setTimeout(() => connectToWhatsApp(), 5000);
+    }
+}
+
+// ── FETCH CONTACTS FROM GROUP PARTICIPANTS ────────────────────────────────
+// In the new WhatsApp @lid multi-device protocol, messaging-history.set delivers
+// contacts as @lid JIDs. Group participants however always have real phone-number
+// JIDs (@s.whatsapp.net). This is the most reliable way to build a contact list.
+async function fetchContactsFromGroups() {
+    if (!sock || connectionStatus !== 'connected') return;
+    try {
+        console.log('[Contacts] Fetching contacts from group participants...');
+        const groups = await sock.groupFetchAllParticipating();
+        const groupList = Object.values(groups);
+
+        let newCount = 0;
+        let total = 0;
+
+        for (const group of groupList) {
+            for (const participant of (group.participants || [])) {
+                const jid = participant.id;
+                // Only real phone JIDs — never @lid, @g.us, or @broadcast
+                if (!jid || !jid.endsWith('@s.whatsapp.net')) continue;
+                total++;
+
+                if (!contactsMap.has(jid)) {
+                    upsertContact(jid, { id: jid, jid, name: null, notify: null });
+                    newCount++;
+                }
+            }
+        }
+
+        console.log(`[Contacts] Groups scanned: ${groupList.length}, participants: ${total}, new contacts added: ${newCount}`);
+        if (newCount > 0 || contactsMap.size > 0) {
+            loadContacts(); // Re-emit updated list to UI
+        }
+    } catch (err) {
+        console.error('[Contacts] fetchContactsFromGroups error:', err.message);
     }
 }
 
@@ -469,6 +525,10 @@ async function loadContacts() {
                         if (jid.endsWith('@broadcast')) return false;
                         if (jid.endsWith('@g.us'))     return false;
                         if (jid === 'status@broadcast') return false;
+                        // Filter @lid JIDs — these are device IDs, not phone numbers
+                        // They appear in the new WhatsApp multi-device protocol but
+                        // cannot be messaged directly as contacts
+                        if (jid.endsWith('@lid'))      return false;
                         return true;
                     })
                     .map(c => {
@@ -613,15 +673,23 @@ app.get('/api/contacts', (req, res) => {
 });
 
 // Lightweight sync trigger — called by the Sync button in the UI
-app.post('/api/contacts/sync', (req, res) => {
-    if (contactsMap.size > 0) {
-        loadContacts(); // triggers the debounced reload + socket emit
-        res.json({ success: true, count: contactsMap.size, message: `Syncing ${contactsMap.size} contacts...` });
-    } else if (sock && connectionStatus === 'connected') {
-        res.json({ success: true, count: 0, message: 'WhatsApp is still syncing. Please wait a moment.' });
-    } else {
-        res.json({ success: false, message: 'WhatsApp not connected. Please scan QR first.' });
+app.post('/api/contacts/sync', async (req, res) => {
+    if (!sock || connectionStatus !== 'connected') {
+        return res.json({ success: false, message: 'WhatsApp not connected. Please scan QR first.' });
     }
+
+    if (contactsMap.size > 0) {
+        loadContacts(); // emit what we already have
+    }
+
+    // Also kick off a group-participant fetch in the background
+    fetchContactsFromGroups().catch(e => console.error('[Sync] fetchContactsFromGroups error:', e.message));
+
+    res.json({
+        success: true,
+        count: contactsMap.size,
+        message: `Syncing ${contactsMap.size > 0 ? contactsMap.size + ' existing contacts' : ''} + fetching from groups...`
+    });
 });
 
 
@@ -670,25 +738,24 @@ app.post('/api/contacts/force-sync', async (req, res) => {
     try {
         const mapSize = contactsMap.size;
 
-        // Emit what we have immediately — don't wait for debounce
-        if (mapSize > 0) {
-            io.emit('contact-sync-progress', { loaded: 0, total: mapSize, phase: 'start' });
-            loadContacts(); // will emit 'contacts' + 'contact-sync-progress done' when ready
-        }
+        // Emit start progress immediately
+        io.emit('contact-sync-progress', { loaded: 0, total: mapSize || 100, phase: 'start' });
 
-        // Ping a small sample to re-trigger Baileys metadata events for contacts without names
-        const jids = Array.from(contactsMap.keys()).filter(j => j.endsWith('@s.whatsapp.net')).slice(0, 50);
-        if (jids.length > 0) {
-            console.log(`[WA] Re-pinging metadata for ${jids.length} contacts...`);
-            await sock.onWhatsApp(...jids).catch(() => {});
+        // PRIMARY: fetch contacts from group participants (@s.whatsapp.net JIDs — always real)
+        // This runs async and emits contacts via socket when done
+        fetchContactsFromGroups().catch(e => console.error('[Force Sync] group fetch error:', e.message));
+
+        // SECONDARY: if we already have contacts, emit them immediately too
+        if (mapSize > 0) {
+            loadContacts();
         }
 
         res.json({
             success: true,
             total: mapSize,
             message: mapSize > 0
-                ? `Loading ${mapSize} contacts — watch the progress bar.`
-                : 'WhatsApp is still syncing history. Wait a moment and try again.'
+                ? `Refreshing ${mapSize} contacts + scanning groups for new ones...`
+                : 'Scanning your WhatsApp groups for contacts...'
         });
     } catch (err) {
         console.error('[WA] Force Sync error:', err);
